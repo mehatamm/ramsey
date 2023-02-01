@@ -2,10 +2,15 @@ import order.monotone.basic
 import init.data.fin.basic
 import order.hom.basic
 import tactic
+import set_theory.cardinal.finite
+
+
 
 
 #check order_embedding
 
+noncomputable theory 
+open_locale classical 
 variables {α β γ : Type*} [preorder α] [preorder β] [preorder γ]
 
 def order_embedding.refl : α ↪o α:=
@@ -30,18 +35,26 @@ end
 def order_embedding.of_is_empty {a b : Type*} [preorder a] [preorder b] [is_empty a] : a ↪o b :=
 ⟨function.embedding.of_is_empty, is_empty_elim⟩
 
+
+
+
+instance order_embedding.fintype [fintype α] [fintype β] : fintype (α ↪o β) := 
+@fintype.of_finite (α ↪o β)
+  (@finite.of_injective (α ↪o β) (α → β) _ (λ f, (f : α → β)) (fun_like.coe_injective))
+
 @[simp] lemma order_embedding.comp_refl (f: α ↪o β):
   f.comp order_embedding.refl = f :=
 begin
   ext, refl,
 end
 
+
+
 @[reducible] def E (n : ℕ): Type := fin 2 ↪o fin n
 
-def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
+instance foo {n : ℕ} : fintype (set (E n)) := infer_instance
 
-instance fintype_edges_from {n : ℕ}: fintype ( set (E n)):=
-sorry
+def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
 
 
 def has_favorite_color (n : ℕ) (v : fin n) (f : E n → fin 2) :=
@@ -69,10 +82,16 @@ lemma favcolor_procession (k : ℕ):
 ∃ n₀: ℕ, ∀ n, n₀ ≤ n → ∀ f: E n → fin 2,
 ∃ s : (fin (k) ↪o fin n), ∀ v:fin (k), has_favorite_color n (s v) f:=
 begin
+  
     induction k with k ih, {use 0, intros n ng f, refine ⟨⟨⟨fin_zero_elim, fin_zero_elim⟩, fin_zero_elim⟩, fin_zero_elim⟩},
     {
+      
       cases ih with n₀ hn₀, use 2*n₀+1, intros n nge2 f, have zltn: 0 < n, have: 0 < 2*n₀+1:= by linarith, apply lt_of_lt_of_le this nge2, 
-      set f0 := edges_from n ⟨0, zltn⟩, have pigeonhole: ∃ friends ⊆ f0, fintype.card friends=n₀ → ∃ c : fin 2, ∀ e : friends, f e = c, 
+      
+      set f0 := edges_from n ⟨0, zltn⟩, 
+      haveI : fintype f0, apply_instance, 
+      have pigeonhole: 
+        ∃ (friends : finset (E n)), friends ⊆ f0.to_finset ∧ friends.card = n₀ → ∃ c : fin 2, ∀ e : friends, f e = c, 
       {
 
       }
