@@ -3,7 +3,7 @@ import init.data.fin.basic
 import order.hom.basic
 import tactic
 import set_theory.cardinal.finite
-
+import combinatorics.pigeonhole
 
 
 
@@ -54,11 +54,21 @@ end
 
 instance foo {n : ℕ} : fintype (set (E n)) := infer_instance
 
-def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
+@[reducible] def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
 
+@[reducible] def edges_from2 (n : ℕ) (v : fin n): Type := {e : E n // e 0 = v} --define as subtype to make pigeonhole easier
+
+
+
+lemma edges_from_card {n : ℕ} {v : fin n}  : fintype.card (edges_from n v) = n-v-1:=
+begin
+  --tried too hard to work with natural number subtraction
+  sorry,
+  
+end
 
 def has_favorite_color (n : ℕ) (v : fin n) (f : E n → fin 2) :=
-∃ c: fin 2, ∀ (e: edges_from n v), f e = c
+∃ c: fin 2, ∀ (e: edges_from2 n v), f e = c
 
 
 
@@ -78,24 +88,33 @@ end
 #check function.surjective.range_eq
 #check finite.injective_iff_surjective
 #check fin_zero_elim
+
+#check fintype.exists_le_card_fiber_of_mul_le_card
+
 lemma favcolor_procession (k : ℕ): 
 ∃ n₀: ℕ, ∀ n, n₀ ≤ n → ∀ f: E n → fin 2,
 ∃ s : (fin (k) ↪o fin n), ∀ v:fin (k), has_favorite_color n (s v) f:=
 begin
-  
     induction k with k ih, {use 0, intros n ng f, refine ⟨⟨⟨fin_zero_elim, fin_zero_elim⟩, fin_zero_elim⟩, fin_zero_elim⟩},
     {
       
       cases ih with n₀ hn₀, use 2*n₀+1, intros n nge2 f, have zltn: 0 < n, have: 0 < 2*n₀+1:= by linarith, apply lt_of_lt_of_le this nge2, 
       
-      set f0 := edges_from n ⟨0, zltn⟩, 
+      set f0 := edges_from2 n ⟨0, zltn⟩ with f0_def, 
       haveI : fintype f0, apply_instance, 
       have pigeonhole: 
-        ∃ (friends : finset (E n)), friends ⊆ f0.to_finset ∧ friends.card = n₀ → ∃ c : fin 2, ∀ e : friends, f e = c, 
+        ∃ (friends : finset (f0)), n₀ ≤ friends.card ∧ ∃ c : fin 2, ∀ e : friends, f e = c, 
       {
-
-      }
-
+        set f_f0: f0 → fin 2:= λ x, f x with f_f0_def, have f0c: 2*n₀ ≤ fintype.card f0, {
+          sorry
+        }, rw ← fintype.card_fin 2 at f0c, 
+        cases fintype.exists_le_card_fiber_of_mul_le_card f_f0 f0c with y hy,
+        use (finset.filter (λ (x: f0), f_f0 x = y) finset.univ),
+        refine ⟨hy, _⟩, use y, rintros ⟨e, mem⟩, rw finset.mem_filter at mem,
+        cases mem with m1 m2, rw f_f0_def at m2, apply m2, 
+      }, 
+      rcases pigeonhole with ⟨friends, friendscard, ⟨color, friendscolor⟩⟩, 
+      set f_new : E (friends.card) → fin 2 := λ e, 
     },
 end
 
