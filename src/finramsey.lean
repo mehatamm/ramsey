@@ -60,9 +60,11 @@ instance foo {n : ℕ} : fintype (set (E n)) := infer_instance
 
 
 
-lemma edges_from_card {n : ℕ} {v : fin n}  : fintype.card (edges_from n v) = n-v-1:=
+lemma edges_from_card {n k : ℕ} {v : fin n}(hvk : n = v + k)  : fintype.card (edges_from n v) = k :=
 begin
   --tried too hard to work with natural number subtraction
+
+
   sorry,
   
 end
@@ -98,9 +100,13 @@ begin
     induction k with k ih, {use 0, intros n ng f, refine ⟨⟨⟨fin_zero_elim, fin_zero_elim⟩, fin_zero_elim⟩, fin_zero_elim⟩},
     {
       
-      cases ih with n₀ hn₀, use 2*n₀+1, intros n nge2 f, have zltn: 0 < n, have: 0 < 2*n₀+1:= by linarith, apply lt_of_lt_of_le this nge2, 
+      cases ih with n₀ hn₀, use 2*n₀+1, intros n nge2 f, 
       
-      set f0 := edges_from2 n ⟨0, zltn⟩ with f0_def, 
+      cases n, linarith, 
+      
+      have zltn: 0 < n, have: 0 < 2*n₀+1:= by linarith, apply lt_of_lt_of_le this nge2, 
+      
+      set f0 := edges_from2 (n+1) ⊥ with f0_def, 
       haveI : fintype f0, apply_instance, 
       have pigeonhole: 
         ∃ (friends : finset (f0)), n₀ ≤ friends.card ∧ ∃ c : fin 2, ∀ e : friends, f e = c, 
