@@ -132,8 +132,37 @@ end
 
 
 
+
+def order_embedding_equiv_finset {α : Type*} [linear_order α] (k : ℕ) : 
+  {s : finset α // s.card = k} ≃ (fin k ↪o α) := 
+{ to_fun := λ p, finset.order_emb_of_fin p.1 p.2,
+  inv_fun := λ f, ⟨(set.range f).to_finset, 
+  begin
+    convert fintype.card_range (f.to_embedding) using 1, swap, simp, 
+    simp only [set.to_finset_range, rel_embedding.coe_fn_to_embedding, fintype.card_of_finset], 
+    congr, 
+    ext, simp, 
+  end ⟩   ,
+  left_inv := begin
+    rintro ⟨s, hs⟩, simp, 
+  end ,
+  right_inv := begin
+    intro f, 
+    simp only [set.to_finset_range], 
+    rw ←finset.order_emb_of_fin_unique', simp,   
+    
+    
+    
+  end  } 
+
+
+
 lemma edges_from_card {n k : ℕ} {v : fin n}(hvk : n = v + 1 + k)  : fintype.card (edges_from n v) = k :=
 begin
+
+  unfold edges_from, 
+  
+  convert (@fintype.card_of_bijective (fin k) _ _ _ _ _).symm,
   have eq: fin k ≃ edges_from n v:=
   {
     to_fun:=begin
