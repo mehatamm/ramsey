@@ -6,7 +6,6 @@ import set_theory.cardinal.finite
 import combinatorics.pigeonhole
 
 
-
 #check order_embedding
 
 noncomputable theory 
@@ -34,8 +33,6 @@ end
 
 def order_embedding.of_is_empty {a b : Type*} [preorder a] [preorder b] [is_empty a] : a ↪o b :=
 ⟨function.embedding.of_is_empty, is_empty_elim⟩
-
-
 
 
 instance order_embedding.fintype [fintype α] [fintype β] : fintype (α ↪o β) := 
@@ -73,47 +70,7 @@ def edge_upconvert {i : ℕ} {n : ℕ} (e : E i)(h: i ≤ n) : E n:=
   map_rel_iff' := begin
     intros a b, simp,
   end }
-/-
-@[reducible] def edge {n: ℕ} {i j : fin n} (hl: i < j): E n:= --worst thing i've written in lean so far
-{ to_fun := λ x, if h: x = 0 then i else j,
-  inj' := begin
-    intros a b abeq, cases mem_fin_2 a, {
-      cases mem_fin_2 b, {
-        simp [h, h_1],
-      },
-      dsimp at abeq, simp[h, h_1] at abeq, apply absurd abeq (ne_of_lt hl), --figure out how to use ite
-    },
-    cases mem_fin_2 b, dsimp at abeq, simp[h, h_1] at abeq, apply absurd abeq.symm (ne_of_lt hl), 
-    simp [h, h_1],
-  end,
-  map_rel_iff' := begin
-    intros a b, split, intro aleb,
-    cases mem_fin_2 a, {
-      cases mem_fin_2 b, 
-      {
-        simp [h, h_1, le_refl],
-      },
-      rw [h, h_1], norm_num,
-    },
-    cases mem_fin_2 b, 
-    {
-      simp [h, h_1] at aleb, apply absurd hl (not_lt_of_le aleb), 
-    },
-    simp [h, h_1, le_refl], intro aleb, 
-    cases mem_fin_2 a, {
-      cases mem_fin_2 b, 
-      {
-        simp [h, h_1], 
-      },
-      simp [h, h_1], apply le_of_lt hl, 
-    },
-    cases mem_fin_2 b, 
-      {
-        rw [h, h_1] at aleb, norm_num at aleb,
-      },
-      simp [h, h_1], 
-  end }
--/
+
 variables {η ζ : Type*}
 theorem finset.exists_le_card_fiber_of_mul_le_card_to_type [decidable_eq ζ] [fintype ζ] [nonempty ζ] {s : finset η} (f : η → ζ) {n : ℕ} (hn : fintype.card ζ * n ≤ s.card) :
 ∃ (y : ζ), n ≤ (finset.filter (λ (x : η), f x = y) s).card:=
@@ -128,9 +85,9 @@ end
 
 @[reducible] def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
 
+@[reducible] def edges_from_in_finset (n : ℕ) (v : fin n) (Y : finset (E n)) : set (E n):= {e ∈ Y | e 0 = v}
+
 --@[reducible] def edges_from2 (n : ℕ) (v : fin n): Type := {e : E n // e 0 = v} --define as subtype to make pigeonhole easier
-
-
 
 
 def order_embedding_equiv_finset {α : Type*} [linear_order α] (k : ℕ) : 
@@ -149,13 +106,8 @@ def order_embedding_equiv_finset {α : Type*} [linear_order α] (k : ℕ) :
   right_inv := begin
     intro f, 
     simp only [set.to_finset_range], 
-    rw ←finset.order_emb_of_fin_unique', simp,   
-    
-    
-    
+    rw ←finset.order_emb_of_fin_unique', simp, 
   end  } 
-
-
 
 lemma edges_from_card {n k : ℕ} {v : fin n}(hvk : n = v + 1 + k)  : fintype.card (edges_from n v) = k :=
 begin
@@ -178,8 +130,39 @@ begin
   }
 end
 
-def has_favorite_color (n : ℕ) (v : fin n) (f : E n → fin 2) :=
-∃ c: fin 2, ∀ (e ∈ edges_from n v), f e = c
+@[reducible] def edge: Type:= fin 2 ↪o ℕ
+
+def edges_from_finset (Y: finset ℕ) (v : ℕ):= {e : edge | e 0 = v ∧ e 1 ∈ Y}
+
+lemma edges_from_finset_fin (Y: finset ℕ) (v : ℕ): (edges_from_finset Y v).finite:=
+sorry
+
+lemma edges_from_finset_card (Y: finset ℕ) {v k : ℕ} (v ∈ Y) (yc: k+1 ≤ Y.card):
+k ≤ (set.finite.to_finset (edges_from_finset_fin Y v)).card:=
+sorry
+
+def has_fav (f : edge → fin 2) (Y : finset ℕ):= 
+∀ y ∈ Y, ∃ c : fin 2,
+∀ e ∈ (edges_from_finset Y y), f e = c
+
+
+lemma favcolor_fixed (k : ℕ): 
+∃ n₀: ℕ, ∀ X : finset ℕ, X.card ≥ n₀ → ∀ f: edge → fin 2, ∃ Y ⊆ X,
+Y.card = k ∧ has_fav f Y :=
+begin
+  induction k with k ih,
+  {
+    use 0, intros x xg f, use finset.empty, refine ⟨finset.empty_subset x, finset.card_empty, _⟩, 
+    intros y yinf, apply absurd yinf (finset.not_mem_empty y),
+  },
+  cases ih with n₀ hn₀, use 2*n₀+1, intros X Xcge f,
+  have xnone: X.nonempty, apply finset.card_pos.1, linarith,
+  set xmin:= X.min' xnone,
+  set xfmin:= edges_from_finset X xmin, 
+
+end
+
+
 
 #check function.surjective.range_eq
 #check finite.injective_iff_surjective
@@ -187,6 +170,9 @@ def has_favorite_color (n : ℕ) (v : fin n) (f : E n → fin 2) :=
 
 #check fintype.exists_le_card_fiber_of_mul_le_card
 #check finset.order_emb_of_fin
+
+def has_favorite_color (n : ℕ) (v : fin n) (f : E n → fin 2) :=
+∃ c: fin 2, ∀ (e ∈ edges_from n v), f e = c
 
 lemma favcolor_procession (k : ℕ): 
 ∃ n₀: ℕ, ∀ n, n₀ ≤ n → ∀ f: E n → fin 2,
