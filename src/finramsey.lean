@@ -109,37 +109,53 @@ def order_embedding_equiv_finset {α : Type*} [linear_order α] (k : ℕ) :
     rw ←finset.order_emb_of_fin_unique', simp, 
   end  } 
 
-lemma edges_from_card {n k : ℕ} {v : fin n}(hvk : n = v + 1 + k)  : fintype.card (edges_from n v) = k :=
-begin
+@[reducible] def edge : Type:= fin 2 ↪o ℕ
 
-  unfold edges_from, 
+
+-- lemma edges_from_card {n k : ℕ} {v : fin n}(hvk : n = v + 1 + k)  : fintype.card (edges_from n v) = k :=
+-- begin
+
+--   unfold edges_from, 
   
-  convert (@fintype.card_of_bijective (fin k) _ _ _ _ _).symm,
-  have eq: fin k ≃ edges_from n v:=
-  {
-    to_fun:=begin
-      rintros ⟨i, lk⟩, have vltn: ((v:ℕ)+i+1) < n, linarith, have vlvi: (v:ℕ) < v+ i + 1,
-      linarith, have vlvif: v < ⟨v+i+1, vltn⟩, apply vlvi, refine ⟨edge vlvif, _⟩, dsimp, refl, 
-    end,
-    inv_fun:=begin
-      rintros ⟨e, e0⟩, have le12: (0:fin 2) ≤ (1:fin 2):= by norm_num, have e01:=e.map_rel_iff.2 le12, 
-      have: e 0 = v, apply e0, rw this at e01, use e 1 - v, sorry,
-    end,
-    left_inv:=sorry,
-    right_inv:=sorry,
-  }
-end
+--   convert (@fintype.card_of_bijective (fin k) _ _ _ _ _).symm,
+--   have eq: fin k ≃ edges_from n v:=
+--   {
+--     to_fun:=begin
+--       rintros ⟨i, lk⟩, have vltn: ((v:ℕ)+i+1) < n, linarith, have vlvi: (v:ℕ) < v+ i + 1,
+--       linarith, have vlvif: v < ⟨v+i+1, vltn⟩, apply vlvi, refine ⟨edge vlvif, _⟩, dsimp, refl, 
+--     end,
+--     inv_fun:=begin
+--       rintros ⟨e, e0⟩, have le12: (0:fin 2) ≤ (1:fin 2):= by norm_num, have e01:=e.map_rel_iff.2 le12, 
+--       have: e 0 = v, apply e0, rw this at e01, use e 1 - v, sorry,
+--     end,
+--     left_inv:=sorry,
+--     right_inv:=sorry,
+--   }
+-- end
 
-@[reducible] def edge: Type:= fin 2 ↪o ℕ
 
-def edges_from_finset (Y: finset ℕ) (v : ℕ):= {e : edge | e 0 = v ∧ e 1 ∈ Y}
+instance edges_from_finset_fin (Y: finset ℕ) (v : ℕ) : fintype {e : edge | e 0 = v ∧ e 1 ∈ Y} :=
+begin
+  set f : {e : edge | e 0 = v ∧ e 1 ∈ Y} → Y := λ e, ⟨e.1 1, e.2.2⟩ with hfdef, 
+  have hf : f.injective, 
+  { rintros ⟨x,⟨hx,hx'⟩⟩ ⟨y,⟨hy,hy'⟩⟩ hxy, simp [hfdef] at hxy, ext a,  sorry, },
+  apply fintype.of_injective f hf,
+end 
 
-lemma edges_from_finset_fin (Y: finset ℕ) (v : ℕ): (edges_from_finset Y v).finite:=
-sorry
+def edges_from_finset (Y: finset ℕ) (v : ℕ) : finset edge := 
+  set.to_finset {e : edge | e 0 = v ∧ e 1 ∈ Y}
 
-lemma edges_from_finset_card (Y: finset ℕ) {v k : ℕ} (v ∈ Y) (yc: k+1 ≤ Y.card):
-k ≤ (set.finite.to_finset (edges_from_finset_fin Y v)).card:=
-sorry
+-- example {α : Type} (f : α → β) (hf : f.injective) (s : finset β) (h : ∀ a, f a ∈ s) : finite α :=
+-- begin
+  
+-- end  
+
+lemma edges_from_finset_card (Y: finset ℕ) {v k : ℕ} (hvy : ∀ y ∈ Y, v ≤ y) (yc: k+1 ≤ Y.card):
+k ≤ (edges_from_finset Y v).card:=
+begin
+  -- set f : ℕ → edge := λ e, e 1,   
+  have := @finset.card_le_card_of_inj_on _ _ (edges_from_finset Y v) (Y.erase v) f, 
+end 
 
 def has_fav (f : edge → fin 2) (Y : finset ℕ):= 
 ∀ y ∈ Y, ∃ c : fin 2,
