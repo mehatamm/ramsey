@@ -269,6 +269,8 @@ begin
   intro k, cases favcolor_fixed (2*k) with n₀ hn₀, use n₀, intros n ncard f, 
   rcases hn₀ n ncard f with ⟨y, ysubn, yc, yfav⟩, 
   have ycfinc: fintype.card (fin 2) * k ≤ y.card, rw fintype.card_fin 2, linarith,
+  unfold has_fav at yfav, 
+  choose! fn h_fn using yfav, 
   set favcolorfun: ℕ → fin 2:= λ x, if hx: x ∈ y then classical.some (yfav x hx) else ⊥ with favcolorfun_def,
   cases finset.exists_le_card_fiber_of_mul_le_card_to_type (favcolorfun) ycfinc with color hc,
   set clique:= finset.filter (λ (x : ℕ), favcolorfun x = color) y,
