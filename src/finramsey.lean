@@ -271,13 +271,11 @@ begin
   have ycfinc: fintype.card (fin 2) * k ≤ y.card, rw fintype.card_fin 2, linarith,
   unfold has_fav at yfav, 
   choose! fn h_fn using yfav, 
-  set favcolorfun: ℕ → fin 2:= λ x, if hx: x ∈ y then classical.some (yfav x hx) else ⊥ with favcolorfun_def,
-  cases finset.exists_le_card_fiber_of_mul_le_card_to_type (favcolorfun) ycfinc with color hc,
-  set clique:= finset.filter (λ (x : ℕ), favcolorfun x = color) y,
-  have csuby: clique ⊆ y:= finset.filter_subset (λ (x : ℕ), favcolorfun x = color) y,
+  cases finset.exists_le_card_fiber_of_mul_le_card_to_type fn ycfinc with color hc,
+  set clique:= finset.filter (λ (x : ℕ), fn x = color) y,
+  have csuby: clique ⊆ y:= finset.filter_subset (λ (x : ℕ), fn x = color) y,
   use clique, refine ⟨finset.subset.trans csuby ysubn, hc, _⟩,
   use color, intros v vclique e eefromsv, rw finset.mem_filter at vclique, cases vclique with vy vcolor,
-  rw favcolorfun_def at vcolor, simp [vy] at vcolor, 
   have ecsy:= edges_from_finset_subset y clique v csuby,
-  have spec:= classical.some_spec (yfav v vy) e (ecsy eefromsv), 
-end
+  have:= h_fn v vy e (ecsy eefromsv), rw vcolor at this, exact this,
+  end
