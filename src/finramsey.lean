@@ -58,18 +58,9 @@ begin
   all_goals{ apply finite.injective_iff_surjective.1 _, apply fintype.finite, apply fin.fintype, exact (_ : fin k ↪o fin k).inj', },
 end
 
-@[reducible] def E (n : ℕ): Type := fin 2 ↪o fin n
+@[reducible] def E (n : ℕ): Type := fin 2 ↪o fin n --no longer used
 
 --instance edge_order {n : ℕ} : linear_order (E n):= sorry
-
-def edge_upconvert {i : ℕ} {n : ℕ} (e : E i)(h: i ≤ n) : E n:=
-{ to_fun := λ x, fin.cast_le h (e x),
-  inj' := begin
-    intros x y, simp, 
-  end,
-  map_rel_iff' := begin
-    intros a b, simp,
-  end }
 
 variables {η ζ : Type*}
 theorem finset.exists_le_card_fiber_of_mul_le_card_to_type [decidable_eq ζ] [fintype ζ] [nonempty ζ] {s : finset η} (f : η → ζ) {n : ℕ} (hn : fintype.card ζ * n ≤ s.card) :
@@ -81,11 +72,6 @@ begin
   rcases finset.exists_le_card_fiber_of_mul_le_card_of_maps_to hf ht hn with ⟨y, h, hy⟩,
   use y, apply hy,
 end
-
-
-@[reducible] def edges_from (n : ℕ) (v : fin n) : set (E n):= {e : E n | e 0 = v}
-
-@[reducible] def edges_from_in_finset (n : ℕ) (v : fin n) (Y : finset (E n)) : set (E n):= {e ∈ Y | e 0 = v}
 
 
 def order_embedding_equiv_finset {α : Type*} [linear_order α] (k : ℕ) : 
@@ -163,6 +149,12 @@ end
 @[reducible] def edges_from_finset (Y: finset ℕ) (v : ℕ) : finset edge := 
   set.to_finset {e : edge | e 0 = v ∧ e 1 ∈ Y}
 
+
+lemma edges_from_finset_subset (Y s: finset ℕ) (v : ℕ) (hs: s ⊆ Y) : edges_from_finset s v ⊆ edges_from_finset Y v:=
+begin
+  intros e esv, rw set.mem_to_finset at esv ⊢, use [esv.1, hs esv.2], 
+end
+
 -- example {α : Type} (f : α → β) (hf : f.injective) (s : finset β) (h : ∀ a, f a ∈ s) : finite α :=
 -- begin
   
@@ -182,7 +174,7 @@ begin
   rw fabeq at a1, rw b1 at a1, exact a1.symm, 
 end 
 
-def has_fav (f : edge → fin 2) (Y : finset ℕ):= 
+@[reducible] def has_fav (f : edge → fin 2) (Y : finset ℕ):= 
 ∀ y ∈ Y, ∃ c : fin 2,
 ∀ e ∈ (edges_from_finset Y y), f e = c
 
@@ -263,12 +255,27 @@ end
 #check fintype.exists_le_card_fiber_of_mul_le_card
 #check finset.order_emb_of_fin
 
+--@[reducible] def favcolorfun {y: finset ℕ} {f: edge → fin 2} (h: has_fav f y): ℕ → fin 2:=
+--λ x, if hx: x ∈ y then classical.some (h x hx) else ⊥
+
+#check edges_from_finset_subset
+
 theorem finramsey: 
 ∀ k: ℕ,  ∃ n₀: ℕ, ∀ n : finset ℕ, n₀ ≤ n.card → 
 ∀ f: edge → fin 2,
-∃ s ⊆ n,
-∃ c : fin 2, ∀ v : s, ∀ e : edges_from_finset s v, f e = c:=
+∃ s ⊆ n, k ≤ s.card ∧
+∃ c : fin 2, ∀ v ∈ s, ∀ e ∈ edges_from_finset s v, f e = c:=
 begin
   intro k, cases favcolor_fixed (2*k) with n₀ hn₀, use n₀, intros n ncard f, 
-  rcases hn₀ n ncard f with ⟨y, ysubn, yc, yfav⟩, set ytoc: y → fin 2:= 
+  rcases hn₀ n ncard f with ⟨y, ysubn, yc, yfav⟩, 
+  have ycfinc: fintype.card (fin 2) * k ≤ y.card, rw fintype.card_fin 2, linarith,
+  set favcolorfun: ℕ → fin 2:= λ x, if hx: x ∈ y then classical.some (yfav x hx) else ⊥ with favcolorfun_def,
+  cases finset.exists_le_card_fiber_of_mul_le_card_to_type (favcolorfun) ycfinc with color hc,
+  set clique:= finset.filter (λ (x : ℕ), favcolorfun x = color) y,
+  have csuby: clique ⊆ y:= finset.filter_subset (λ (x : ℕ), favcolorfun x = color) y,
+  use clique, refine ⟨finset.subset.trans csuby ysubn, hc, _⟩,
+  use color, intros v vclique e eefromsv, rw finset.mem_filter at vclique, cases vclique with vy vcolor,
+  rw favcolorfun_def at vcolor, simp [vy] at vcolor, 
+  have ecsy:= edges_from_finset_subset y clique v csuby,
+  have spec:= classical.some_spec (yfav v vy) e (ecsy eefromsv), 
 end
