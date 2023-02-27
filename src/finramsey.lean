@@ -15,6 +15,32 @@ variables {α β γ : Type*} [preorder α] [preorder β] [preorder γ]
 def order_embedding.refl : α ↪o α:=
   (order_iso.refl α).to_order_embedding
 
+@[reducible] def order_embedding.remap (f: α ↪o β) {Y: finset β} (h: ∀ x : α, f x ∈ Y): (α ↪o Y):=
+{ to_fun := λ x, ⟨f x, h x⟩,
+  inj' := λ x y, by simp,
+  map_rel_iff' := λ x y, by simp }
+
+@[reducible] def order_embedding.unmap {Y: finset β} (f: α ↪o Y) : {f : α ↪o β // ∀ x : α, f x ∈ Y}:=
+{ val := { to_fun := λ x, f x,
+  inj' := begin
+    intros a b abeq, apply f.inj', apply subtype.ext_iff_val.2 abeq,
+  end,
+  map_rel_iff' := begin
+    intros a b, simp, 
+  end
+  },
+  property := λ x, (f x).2 }
+
+lemma order_embedding.iso_restricted {Y: finset β} : {f : α ↪o β // ∀ x : α, f x ∈ Y} ≃ (α ↪o Y):=
+{ to_fun := λ x, order_embedding.remap x.1 x.2,
+  inv_fun := λ x, x.unmap,
+  left_inv := begin
+    intro x, ext, simp, 
+  end,
+  right_inv := begin
+    intro x, ext, simp,
+  end }
+
 def order_embedding.comp (f: α ↪o β) (g: β ↪o γ)
 : α ↪o γ:=
 { to_fun := g ∘ f,
@@ -174,28 +200,30 @@ begin
   rw fabeq at a1, rw b1 at a1, exact a1.symm, 
 end 
 
-@[reducible] def has_fav (f : edge → fin 2) (Y : finset ℕ):= 
-∀ y ∈ Y, ∃ c : fin 2,
+@[reducible] def has_fav (c: ℕ)(f : edge → fin c) (Y : finset ℕ):= 
+∀ y ∈ Y, ∃ c : fin c,
 ∀ e ∈ (edges_from_finset Y y), f e = c
 
-lemma favcolor_fixed (k : ℕ): 
-∃ n₀: ℕ, ∀ X : finset ℕ, n₀ ≤ X.card  → ∀ f: edge → fin 2, ∃ Y ⊆ X,
-Y.card = k ∧ has_fav f Y :=
+lemma favcolor_procession (k c : ℕ) [nonempty (fin c)]: 
+∃ n₀: ℕ, ∀ X : finset ℕ, n₀ ≤ X.card  → ∀ f: edge → fin c, ∃ Y ⊆ X,
+Y.card = k ∧ has_fav c f Y :=
 begin
   induction k with k ih,
   {
     use 0, intros x xg f, use finset.empty, refine ⟨finset.empty_subset x, finset.card_empty, _⟩, 
     intros y yinf, apply absurd yinf (finset.not_mem_empty y),
   },
-  cases ih with n₀ hn₀, use 2*n₀+1, intros X Xcge f,
-  have xnone: X.nonempty, apply finset.card_pos.1, linarith,
-  set xmin:= X.min' xnone,
+  cases ih with n₀ hn₀, use (c*n₀)+1, intros X Xcge f,
+  have xnone: X.nonempty, apply finset.card_pos.1, by_contradiction, push_neg at h,
+  have:= nat.eq_zero_of_le_zero h, cases nat.eq_zero_or_pos (c*n₀); linarith,
+  set xmin:= X.min' xnone, 
   set xfmin:= edges_from_finset X xmin, 
   have xfc: (X.erase xmin).card ≤ xfmin.card, apply edges_from_finset_card X (λ y yxe, finset.min'_lt_of_mem_erase_min' X xnone yxe),
   exact xmin, rw (finset.card_erase_of_mem (finset.min'_mem X xnone)) at xfc,
-  have xfcn: 2*n₀ ≤ xfmin.card, linarith [finset.card_pos.2 xnone], --finally fully proved cardinality!
-  have pigeonhole: ∃ friends : (finset edge), friends ⊆ xfmin ∧ n₀ ≤ friends.card ∧ ∃ c : fin 2, ∀ e ∈ friends, f e = c,
+  have xfcn: c*n₀ ≤ xfmin.card, linarith [finset.card_pos.2 xnone], --finally fully proved cardinality!
+  have pigeonhole: ∃ friends : (finset edge), friends ⊆ xfmin ∧ n₀ ≤ friends.card ∧ ∃ c : fin c, ∀ e ∈ friends, f e = c,
   {
+    rw ← fintype.card_fin c at xfcn,
     cases finset.exists_le_card_fiber_of_mul_le_card_to_type f xfcn with y hy,
     use finset.filter (λ (x : edge), f x = y) xfmin,
     refine ⟨_, hy, _⟩, exact finset.filter_subset (λ (x : edge), f x = y) xfmin,
@@ -261,14 +289,18 @@ end
 #check edges_from_finset_subset
 
 theorem finramsey: 
-∀ k: ℕ,  ∃ n₀: ℕ, ∀ n : finset ℕ, n₀ ≤ n.card → 
-∀ f: edge → fin 2,
+∀ k c: ℕ,  ∃ n₀: ℕ, ∀ n : finset ℕ, n₀ ≤ n.card → 
+∀ f: edge → fin c,
 ∃ s ⊆ n, k ≤ s.card ∧
-∃ c : fin 2, ∀ v ∈ s, ∀ e ∈ edges_from_finset s v, f e = c:=
+∃ c : fin c, ∀ v ∈ s, ∀ e ∈ edges_from_finset s v, f e = c:=
 begin
-  intro k, cases favcolor_fixed (2*k) with n₀ hn₀, use n₀, intros n ncard f, 
+  intros k c, cases nat.eq_zero_or_eq_succ_pred c with c0 cp, use 0, intros n nc f, 
+  have f0:= f (edge_of nat.zero_lt_one), rw c0 at f0, apply fin_zero_elim f0,
+  haveI: inhabited (fin c), rw cp, apply fin.inhabited,
+  haveI: nonempty (fin c), apply nonempty_of_inhabited,
+   cases favcolor_procession (c*k) c with n₀ hn₀, use n₀, intros n ncard f, 
   rcases hn₀ n ncard f with ⟨y, ysubn, yc, yfav⟩, 
-  have ycfinc: fintype.card (fin 2) * k ≤ y.card, rw fintype.card_fin 2, linarith,
+  have ycfinc: fintype.card (fin c) * k ≤ y.card, rw fintype.card_fin c, linarith,
   unfold has_fav at yfav, 
   choose! fn h_fn using yfav, 
   cases finset.exists_le_card_fiber_of_mul_le_card_to_type fn ycfinc with color hc,
