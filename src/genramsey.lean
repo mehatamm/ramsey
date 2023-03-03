@@ -3,6 +3,7 @@ import init.data.fin.basic
 import order.hom.basic
 import tactic
 import set_theory.cardinal.finite
+import set_theory.ordinal.basic
 import combinatorics.pigeonhole
 import finramsey
 
@@ -11,13 +12,12 @@ open finset
 
 variables {α β : Type*} [linear_order α]
 
-
 noncomputable theory 
 open_locale classical
 
 @[reducible] def p_edge (C : finset β) (p : ℕ) := powerset_len p C
 
-lemma p_edge_card {C : finset α} {p : ℕ} {edge: finset α} (h: edge ∈ p_edge C p) : edge.card = p:=
+lemma p_edge_card {C : finset β} {p : ℕ} {edge: finset β } (h: edge ∈ p_edge C p) : edge.card = p:=
 begin
   apply (finset.mem_powerset_len.1 h).2,
 end
@@ -27,33 +27,34 @@ end
 finset.filter (λ e, e ⊆ ss) (p_edge C p)
 --{e ∈ p_edge C p | e ⊆ ss}
 
-lemma p_edge_in_ss_subset (C : finset α) (ss : finset α) (p : ℕ):
+lemma p_edge_in_ss_subset (C : finset β ) (ss : finset β) (p : ℕ):
 p_edge_in_ss C ss p ⊆ p_edge C p:=
 begin
   apply finset.filter_subset, 
 end
 
 
-lemma p_edge_in_ss_card {C : finset α} {ss : finset α} {p : ℕ} {edge : finset α} (h: edge ∈ p_edge_in_ss C ss p):
+lemma p_edge_in_ss_card {C ss : finset β} {p : ℕ} {edge : finset β} (h: edge ∈ p_edge_in_ss C ss p):
 edge.card = p:= p_edge_card ((p_edge_in_ss_subset C ss p) h)
 
-lemma p_nonempty (C : finset α) (ss : finset α) {p : ℕ} (h: 0 < p) : ∀ edge ∈ p_edge_in_ss C ss p, finset.nonempty edge:=
+lemma p_nonempty (C ss : finset β) {p : ℕ} (h: 0 < p) : ∀ edge ∈ p_edge_in_ss C ss p, finset.nonempty edge:=
 begin
+  -- haveI : linear_order α := is_well_order.linear_order (well_ordering_rel),
   intros e einss, have:= p_edge_in_ss_card einss, apply finset.card_pos.1, linarith,
 end
 
-def p_edge_from_in_ss [linear_order α] (C : finset α) (ss : finset α) (p : ℕ) (v : α) (h: ∀ edge ∈ p_edge_in_ss C ss p, finset.nonempty edge):
+def p_edge_from_in_ss (C : finset α) (ss : finset α) (p : ℕ) (v : α) (h: ∀ edge ∈ p_edge_in_ss C ss p, finset.nonempty edge):
 finset (finset α):= -- all p-edges from a given vertex within a subset
 finset.filter (λ edge, if mem: edge ∈ p_edge_in_ss C ss p then finset.min' edge (h edge mem) = v else false) (p_edge_in_ss C ss p)
 
-lemma p_edge_from_ss_ss [linear_order α] {C : finset α} {ss : finset α} {p : ℕ} {ppos: 0 < p} {v : α} {edge : finset α}
+lemma p_edge_from_ss_ss {C : finset α} {ss : finset α} {p : ℕ} {ppos: 0 < p} {v : α} {edge : finset α}
 (h: edge ∈ p_edge_from_in_ss C ss p v (p_nonempty C ss ppos)): edge ⊆ ss:=
 begin
   cases finset.mem_filter.1 h with edge_in_ss prop, cases finset.mem_filter.1 edge_in_ss, exact right,
 end
 
 
-lemma p_edge_from_card [linear_order α] {C : finset α} {ss : finset α} {p : ℕ} {ppos: 0 < p} {v : α} {edge : finset α}
+lemma p_edge_from_card {C : finset α} {ss : finset α} {p : ℕ} {ppos: 0 < p} {v : α} {edge : finset α}
 (h: edge ∈ p_edge_from_in_ss C ss p v (p_nonempty C ss ppos)): edge.card = p:=
 begin
   cases mem_filter.1 h with edge_in_ss edge_min_v, exact p_edge_in_ss_card edge_in_ss,
@@ -65,7 +66,7 @@ begin
   apply finset.card_pos.1, have:= p_edge_in_ss_card h, linarith,
 end
 
-lemma p_edge_from_mem [linear_order α] {C : finset α} {ss : finset α} {p : ℕ} {ppos : 0 < p} {v : α} {edge : finset α}
+lemma p_edge_from_mem {C : finset α} {ss : finset α} {p : ℕ} {ppos : 0 < p} {v : α} {edge : finset α}
 (h: edge ∈ p_edge_from_in_ss C ss p v (p_nonempty C ss ppos)): v ∈ edge:=
 begin
   cases mem_filter.1 h with edge_in_ss edge_min_v, 
@@ -183,9 +184,10 @@ end
 #check p_edge_in_ss_from_v_in_ss
 
 theorem genramsey_lo (p c : ℕ) : 
-∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset α, n₀ ≤ C.card → ∀ f : finset α  → fin c, ∃ color : fin c,
+∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset β , n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
 ∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge_in_ss C clique p, f edge = color):=
 begin
+  haveI : linear_order β := is_well_order.linear_order (well_ordering_rel),
   cases nat.eq_zero_or_eq_succ_pred c with c0 cp, 
   {
     intro k, use 0, rw c0, intros C C_card f, have:=f C, apply fin_zero_elim this, 
@@ -201,25 +203,28 @@ begin
   have y2finc: fintype.card (fin c) * k ≤ Y.card, rw fintype.card_fin c, linarith,
   choose! fn h_fn using Y_fav, 
   cases finset.exists_le_card_fiber_of_mul_le_card_to_type fn y2finc with color hc,
-  set clique:= finset.filter (λ (x : α), fn x = color) Y,
-  have csuby: clique ⊆ Y:= finset.filter_subset (λ (x : α), fn x = color) Y,
+  set clique:= finset.filter (λ (x : β), fn x = color) Y,
+  have csuby: clique ⊆ Y:= finset.filter_subset (λ (x : β), fn x = color) Y,
   use [color, clique], refine ⟨finset.subset.trans csuby Y_ss, hc, _⟩, intros edge edge_in_clique,
   rcases p_edge_in_ss_from_v_in_ss edge_in_clique with ⟨v, vclique, hv⟩, swap, exact nat.zero_lt_succ p,
   rw finset.mem_filter at vclique, rw ←vclique.2, exact h_fn v vclique.1 edge (p_edge_from_ss_edge_from_ss csuby hv),
 end
 
 
-theorem genramsey (p c : ℕ) (β : Type*): 
-∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset β,  n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
-∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge_in_ss C clique p, f edge = color):=
-begin
-  intro k,
-  obtain ⟨n₀, hn₀⟩ := genramsey_lo p c k, 
-  use n₀, 
-  intro C, 
-  set φ := fintype.equiv_fin C, 
-  have hn₀ 
 
 
 
-end
+-- theorem genramsey (p c : ℕ) (β : Type*): 
+-- ∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset β,  n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
+-- ∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge_in_ss C clique p, f edge = color):=
+-- begin
+--   intro k,
+--   obtain ⟨n₀, hn₀⟩ := genramsey_lo p c k, 
+--   use n₀, 
+--   intro C, 
+--   set φ := fintype.equiv_fin C, 
+--   have hn₀ 
+
+
+
+-- end
