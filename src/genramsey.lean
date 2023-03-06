@@ -33,9 +33,12 @@ begin
   apply finset.filter_subset, 
 end
 
-
 lemma p_edge_in_ss_card {C ss : finset β} {p : ℕ} {edge : finset β} (h: edge ∈ p_edge_in_ss C ss p):
 edge.card = p:= p_edge_card ((p_edge_in_ss_subset C ss p) h)
+
+lemma p_edge_in_ss_p_edge_ss {C : finset β} {ss : finset β} {p : ℕ} {edge : finset β}
+(h: edge ∈ p_edge_in_ss C ss p): edge ∈ p_edge ss p:=
+finset.mem_powerset_len.2 ⟨(finset.mem_filter.1 h).2, p_edge_in_ss_card h⟩
 
 lemma p_nonempty (C ss : finset β) {p : ℕ} (h: 0 < p) : ∀ edge ∈ p_edge_in_ss C ss p, finset.nonempty edge:=
 begin
@@ -81,13 +84,15 @@ begin
   rw dif_pos edge_in_ss at edge_min_v, apply edge_min_v, 
 end
 
-lemma p_edge_in_ss_from_v_in_ss {C : finset α} {ss : finset α} {p : ℕ} {ppos : 0 < p} {edge : finset α}
-(h: edge ∈ p_edge_in_ss C ss p):
+lemma p_edge_ss_from_v_in_ss {C : finset α} {ss : finset α} {p : ℕ} {ppos : 0 < p} {edge : finset α}
+(h: edge ∈ p_edge ss p) (ss_p: ss ⊆ C):
 ∃ v ∈ ss, edge ∈ p_edge_from_in_ss C ss p v (p_nonempty C ss ppos):=
 begin
-  have edge_none:=edge_nonempty ppos h,
-  use finset.min' edge edge_none, refine ⟨(finset.mem_filter.1 h).2 (finset.min'_mem edge edge_none), _⟩,
-  apply finset.mem_filter.2, refine ⟨h, _⟩, rw dif_pos h, 
+  have:edge ∈ p_edge_in_ss C ss p, rw finset.mem_filter, rw finset.mem_powerset_len, 
+  rw finset.mem_powerset_len at h, exact ⟨⟨finset.subset.trans h.1 ss_p, h.2⟩, h.1⟩,
+  have edge_none:=edge_nonempty ppos this,
+  use finset.min' edge edge_none, refine ⟨(finset.mem_filter.1 this).2 (finset.min'_mem edge edge_none), _⟩,
+  apply finset.mem_filter.2, refine ⟨this, _⟩, rw dif_pos this, 
 end
 
 lemma p_edge_from_ss_edge_from_ss {C : finset α} {ss_1 : finset α} {ss_2 : finset α} {p : ℕ} {ppos : 0 < p} {v : α}
@@ -113,7 +118,7 @@ end
 lemma genprocession (p k c : ℕ)
 (ramsey: ∀ k : ℕ, ∃ (n₀ : ℕ), ∀ (C : finset α), n₀ ≤ C.card → ∀ (f : finset α → fin c),
  ∃ (color : fin c) (clique : finset α) (H : clique ⊆ C),
-  k ≤ clique.card ∧ ∀ (edge : finset α), edge ∈ p_edge_in_ss C clique p → f edge = color)
+  k ≤ clique.card ∧ ∀ edge, edge ∈ p_edge clique p → f edge = color)
 : --write fav first
 ∃ n₀ : ℕ, ∀ C : finset α, n₀ ≤ C.card → ∀ f : finset α → fin c, ∃ Y ⊆ C,
 Y.card = k ∧ ∀ v ∈ Y, p_fav_in_ss C Y f (nat.zero_lt_succ p) v:=
@@ -152,7 +157,7 @@ begin
   have proc_erase_ss_clique: procession.erase(v_1) ⊆ clique, apply finset.subset.trans _ favs_ss, apply finset.subset_of_eq,
   apply finset.erase_cons _, apply finset.subset.trans _ proc_erase_ss_clique, 
   exact finset.erase_subset_erase v_1 (p_edge_from_ss_ss edge_from_proc_v),
-  exact f_aux_match f (p_edge_from_mem edge_from_proc_v) color (clique_color (edge.erase v_1) emv_in_p_C_right),
+  exact f_aux_match f (p_edge_from_mem edge_from_proc_v) color (clique_color (edge.erase v_1) (p_edge_in_ss_p_edge_ss emv_in_p_C_right)),
   cases favs_colors v v_favs with v_color h_v_color, use v_color, intros edge edge_in_proc,
   have edge_card:= p_edge_from_card edge_in_proc, have edge_ss_proc:= p_edge_from_ss_ss edge_in_proc,
   have edge_none: edge.nonempty, apply finset.card_pos.1, rw edge_card, exact nat.zero_lt_succ _,
@@ -181,13 +186,12 @@ begin
   exact h_v_color edge edge_in_from_favs,
 end
 
-#check p_edge_in_ss_from_v_in_ss
 
-theorem genramsey_lo (p c : ℕ) : 
-∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset β , n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
-∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge_in_ss C clique p, f edge = color):=
+theorem genramsey (p c k : ℕ) : 
+∃ n₀ : ℕ, ∀ C : finset β , n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
+∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge clique p, f edge = color):=
 begin
-  haveI : linear_order β := is_well_order.linear_order (well_ordering_rel),
+  revert k, haveI : linear_order β := is_well_order.linear_order (well_ordering_rel),
   cases nat.eq_zero_or_eq_succ_pred c with c0 cp, 
   {
     intro k, use 0, rw c0, intros C C_card f, have:=f C, apply fin_zero_elim this, 
@@ -196,8 +200,8 @@ begin
   haveI: nonempty (fin c), apply nonempty_of_inhabited,
   induction p with p hp, intro k, use k,
   intros C card f, set fe:= f ∅,
-  use fe, use C, refine ⟨finset.subset.refl C, card, _⟩, intros edge einss,
-  rw finset.card_eq_zero.1 (p_edge_in_ss_card einss),  
+  use fe, use C, refine ⟨finset.subset.refl C, card, _⟩, intros edge edge_p_c,
+  rw finset.card_eq_zero.1 (finset.mem_powerset_len.1 edge_p_c).2,  
   intro k, cases genprocession p (c*k) c hp with n₀ hn₀, use n₀, intros C C_card f, 
   rcases hn₀ C C_card f with ⟨Y, Y_ss, Y_card, Y_fav⟩,
   have y2finc: fintype.card (fin c) * k ≤ Y.card, rw fintype.card_fin c, linarith,
@@ -206,25 +210,8 @@ begin
   set clique:= finset.filter (λ (x : β), fn x = color) Y,
   have csuby: clique ⊆ Y:= finset.filter_subset (λ (x : β), fn x = color) Y,
   use [color, clique], refine ⟨finset.subset.trans csuby Y_ss, hc, _⟩, intros edge edge_in_clique,
-  rcases p_edge_in_ss_from_v_in_ss edge_in_clique with ⟨v, vclique, hv⟩, swap, exact nat.zero_lt_succ p,
+  rcases p_edge_ss_from_v_in_ss edge_in_clique (finset.subset.trans csuby Y_ss) with ⟨v, vclique, hv⟩, swap, exact nat.zero_lt_succ p,
   rw finset.mem_filter at vclique, rw ←vclique.2, exact h_fn v vclique.1 edge (p_edge_from_ss_edge_from_ss csuby hv),
 end
 
 
-
-
-
--- theorem genramsey (p c : ℕ) (β : Type*): 
--- ∀ k : ℕ, ∃ n₀ : ℕ, ∀ C : finset β,  n₀ ≤ C.card → ∀ f : finset β → fin c, ∃ color : fin c,
--- ∃ clique ⊆ C, (k ≤ clique.card ∧ ∀ edge ∈ p_edge_in_ss C clique p, f edge = color):=
--- begin
---   intro k,
---   obtain ⟨n₀, hn₀⟩ := genramsey_lo p c k, 
---   use n₀, 
---   intro C, 
---   set φ := fintype.equiv_fin C, 
---   have hn₀ 
-
-
-
--- end
