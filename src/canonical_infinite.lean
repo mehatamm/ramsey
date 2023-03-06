@@ -22,7 +22,7 @@ relative positions with respect to the ordering on `ℕ`. For example,
 A colouring of the complete `d`-uniform hypergraph on `ℕ`,
 with colours taken from `α`.
 -/
-def colouring (d : ℕ) (α : Type) : Type := edge d → α
+@[reducible] def colouring (d : ℕ) (α : Type) : Type := edge d → α
 
 /-- An infinite subset of `ℕ`, viewed as a subsequence. -/
 @[reducible] def subseq : Type := ℕ ↪o ℕ
@@ -45,7 +45,7 @@ infix ` |e `:80 := edge.restrict
 For a given subedge, the canonical colouring in which two edges have
 the same colour iff they agree when restricted to that subedge.
 -/
-def subedge.colouring {d : ℕ} (s : subedge d) : colouring d (s ↪o ℕ) :=
+def subedge.canonical {d : ℕ} (s : subedge d) : colouring d (s ↪o ℕ) :=
 λ e, e |e s
 
 /--
@@ -77,7 +77,7 @@ The (statement of the) canonical Ramsey theorem:
 every colouring contains a canonical subcolouring.
 -/
 def ramsey.statement {d : ℕ} {α : Type} (f : colouring d α) : Prop :=
-∃ (S : subseq) (s : subedge d), f |c S ≃c s.colouring
+∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical
 
 /-!
 The next two lemmas show that `ramsey.statement` is best possible:
@@ -86,14 +86,14 @@ of passing to an infinite subsequence of ℕ.
 -/
 
 /-- Every subcolouring of a canonical colouring is isomorphic. -/
-def canonical_colouring_iso.statement
+def canonical_subseq_iso_self.statement
   {d : ℕ} (s : subedge d) (S : subseq) : Prop :=
-s.colouring |c S ≃c s.colouring
+s.canonical |c S ≃c s.canonical
 
 /-- Isomorphic canonical colourings come from identical subedges. -/
-def canonical_colouring_ext.statement
+def canonical_inj.statement
   {d : ℕ} (s t : subedge d) : Prop :=
-s.colouring ≃c t.colouring → s = t
+s.canonical ≃c t.canonical → s = t
 
 /-!
 ### Constructions and lemmas
@@ -169,7 +169,7 @@ def edge.of_lub_le {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) : edge (d+
 order_embedding.of_map_le_iff (@fin.last_cases _ (λ _, ℕ) n e)
 begin
   intros i j,
-  cases le_or_lt (fin.last d) i with h_last_le_i h_i_lt_last,
+  obtain (h_last_le_i | h_i_lt_last) := le_or_lt (fin.last d) i,
   {
     rw fin.last_le_iff at h_last_le_i,
     rw [h_last_le_i, fin.last_cases_last],
@@ -227,25 +227,32 @@ end
 ### Main proofs
 -/
 
-def ramsey.statement {d : ℕ} {α : Type} (f : colouring d α) : Prop :=
-∃ (S : subseq) (s : subedge d), f |c S ≃c s.colouring
-
-lemma canonical_colouring_iso
-  {d : ℕ} (s : subedge d) (S : subseq) :
-  canonical_colouring_iso.statement s S :=
+lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
+  /- ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical -/
+  ramsey.statement f :=
 begin
-  change s.colouring |c S ≃c s.colouring,
+  change ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical,
+  sorry,
+end
+
+lemma canonical_subseq_iso_self
+  {d : ℕ} (s : subedge d) (S : subseq) :
+  /- s.canonical |c S ≃c s.canonical -/
+  canonical_subseq_iso_self.statement s S :=
+begin
+  change s.canonical |c S ≃c s.canonical,
   intros e₁ e₂,
   simp_rw [rel_embedding.ext_iff],
   change (∀ (i : s), S (e₁ i) = S (e₂ i)) ↔ (∀ (i : s), e₁ i = e₂ i),
   simp_rw [order_embedding.eq_iff_eq S],
 end
 
-lemma canonical_colouring_ext
+lemma canonical_inj
   {d : ℕ} (s t : subedge d) :
-  canonical_colouring_ext.statement s t :=
+  /- s.canonical ≃c t.canonical → s = t -/
+  canonical_inj.statement s t :=
 begin
-  change s.colouring ≃c t.colouring → s = t,
+  change s.canonical ≃c t.canonical → s = t,
   sorry,
 end
 
@@ -255,7 +262,5 @@ end
 
 example (d : ℕ) : fin (d+1) := fin.last d
 example (d : ℕ) : fin d ↪o fin (d+1) := fin.cast_succ
-example (d : ℕ) : (edge (d+1)) ≃ (edge d) × ℕ := sorry
-
 example (α : Type) : Type :=
 quot (λ (f g : ℕ → α), ∃ (n : ℕ), ∀ (m : ℕ), n ≤ m → f m = g m)
