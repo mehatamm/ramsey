@@ -161,6 +161,14 @@ begin
   simp only [e.lt_iff_lt, fin.mk_lt_mk, lt_add_one],
 end
 
+lemma edge.lub_le_iff {d n : ℕ} (e : edge d) : 
+  e.lub ≤ n ↔ ∀ i, e i < n := 
+begin
+  refine ⟨λ h i, (e.lt_lub _).trans_le h,λ h, _⟩, 
+  cases d, exact nat.zero_le _, 
+  exact nat.lt_iff_add_one_le.mpr (h _), 
+end    
+
 /--
 The `(d+1)`-edge formed from a `d`-edge
 by adding a new largest endpoint.
@@ -168,60 +176,65 @@ by adding a new largest endpoint.
 def edge.of_lub_le {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) : edge (d+1) :=
 order_embedding.of_map_le_iff (@fin.last_cases _ (λ _, ℕ) n e)
 begin
-  intros i j,
-  obtain (h_last_le_i | h_i_lt_last) := le_or_lt (fin.last d) i,
-  {
-    rw fin.last_le_iff at h_last_le_i,
-    rw [h_last_le_i, fin.last_cases_last],
-    cases le_or_lt (fin.last d) j with h_last_le_j h_j_lt_last,
-    {
-      rw fin.last_le_iff at h_last_le_j,
-      rw [h_last_le_j, fin.last_cases_last],
-      exact iff_of_true (le_refl n) (le_refl (fin.last d)),
-    },
-    {
-      set j' : fin d := j.cast_lt h_j_lt_last,
-      have : j'.cast_succ = j := j.cast_succ_cast_lt _,
-      rw [←this, fin.last_cases_cast_succ],
-      apply iff_of_false; apply not_le_of_lt,
-      calc e j' < e.lub : e.lt_lub j'
-      ...       ≤ n     : h,
-      exact j'.cast_succ_lt_last,
-    },
-  },
-  {
-    set i' : fin d := i.cast_lt h_i_lt_last,
-    have : i'.cast_succ = i := (i.cast_succ_cast_lt _),
-    rw [←this, fin.last_cases_cast_succ],
-    cases le_or_lt (fin.last d) j with h_last_le_j h_j_lt_last,
-    {
-      rw fin.last_le_iff at h_last_le_j,
-      rw [h_last_le_j, fin.last_cases_last],
-      apply iff_of_true; apply le_of_lt,
-      calc e i' < e.lub : e.lt_lub i'
-      ...       ≤ n     : h,
-      exact i'.cast_succ_lt_last,
-    },
-    {
-      set j' : fin d := j.cast_lt h_j_lt_last,
-      have : j'.cast_succ = j := j.cast_succ_cast_lt _,
-      rw [←this, fin.last_cases_cast_succ],
-      simp_rw [order_embedding.le_iff_le],
-    },
-  },
-end
+  rw [edge.lub_le_iff] at h,  
+  refine @fin.last_cases _ _ _ (λ a, _), 
+  all_goals {refine @fin.last_cases _ _ _ (λ b, _)},
+  all_goals {simp only [fin.last_cases_last, fin.last_cases_cast_succ, fin.last_le_iff, rfl.le, 
+    order_embedding.le_iff_le]}, 
+  { exact iff_of_false (h _).not_le (b.cast_succ_lt_last.ne)}, 
+  exact iff_of_true (h _).le (a.cast_succ_lt_last.le),   
+end 
+-- begin
+--   intros i j,
+--   obtain (h_last_le_i | h_i_lt_last) := le_or_lt (fin.last d) i,
+--   {
+--     rw fin.last_le_iff at h_last_le_i,
+--     rw [h_last_le_i, fin.last_cases_last],
+--     cases le_or_lt (fin.last d) j with h_last_le_j h_j_lt_last,
+--     {
+--       rw fin.last_le_iff at h_last_le_j,
+--       rw [h_last_le_j, fin.last_cases_last],
+--       exact iff_of_true (le_refl n) (le_refl (fin.last d)),
+--     },
+--     {
+--       set j' : fin d := j.cast_lt h_j_lt_last,
+--       have : j'.cast_succ = j := j.cast_succ_cast_lt _,
+--       rw [←this, fin.last_cases_cast_succ],
+--       apply iff_of_false; apply not_le_of_lt,
+--       calc e j' < e.lub : e.lt_lub j'
+--       ...       ≤ n     : h,
+--       exact j'.cast_succ_lt_last,
+--     },
+--   },
+--   {
+--     set i' : fin d := i.cast_lt h_i_lt_last,
+--     have : i'.cast_succ = i := (i.cast_succ_cast_lt _),
+--     rw [←this, fin.last_cases_cast_succ],
+--     cases le_or_lt (fin.last d) j with h_last_le_j h_j_lt_last,
+--     {
+--       rw fin.last_le_iff at h_last_le_j,
+--       rw [h_last_le_j, fin.last_cases_last],
+--       apply iff_of_true; apply le_of_lt,
+--       calc e i' < e.lub : e.lt_lub i'
+--       ...       ≤ n     : h,
+--       exact i'.cast_succ_lt_last,
+--     },
+--     {
+--       set j' : fin d := j.cast_lt h_j_lt_last,
+--       have : j'.cast_succ = j := j.cast_succ_cast_lt _,
+--       rw [←this, fin.last_cases_cast_succ],
+--       simp_rw [order_embedding.le_iff_le],
+--     },
+--   },
+-- end
 
-lemma edge.of_lub_le_head_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
+@[simp] lemma edge.of_lub_le_head_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
   (edge.of_lub_le e n h).head = e :=
-begin
-  sorry,
-end
+by {ext, simp [edge.of_lub_le, edge.head]}
 
-lemma edge.of_lub_le_last_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
+@[simp] lemma edge.of_lub_le_last_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
   (edge.of_lub_le e n h).last = n :=
-begin
-  sorry,
-end
+by {simp [edge.of_lub_le, edge.last]}
 
 /-!
 ### Main proofs
@@ -252,7 +265,7 @@ lemma canonical_inj
   /- s.canonical ≃c t.canonical → s = t -/
   canonical_inj.statement s t :=
 begin
-  change s.canonical ≃c t.canonical → s = t,
+  change s.canonical ≃c t.canonical → s = t, 
   sorry,
 end
 
