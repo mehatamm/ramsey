@@ -9,20 +9,20 @@ import tactic
 -/
 
 /-- An edge of the complete `d`-uniform hypergraph on `ℕ`. -/
-@[reducible] def edge (d : ℕ) : Type := fin d ↪o ℕ
+@[reducible] def edge (d : ℕ) : Type* := fin d ↪o ℕ
 
 /--
 A subset of the endpoints of a generic edge, identified by their
 relative positions with respect to the ordering on `ℕ`. For example,
 "the 1st, 3rd, and 4th smallest vertices contained in the edge".
 -/
-@[reducible] def subedge (d : ℕ) : Type := set (fin d)
+@[reducible] def subedge (d : ℕ) : Type* := set (fin d)
 
 /--
 A colouring of the complete `d`-uniform hypergraph on `ℕ`,
 with colours taken from `α`.
 -/
-@[reducible] def colouring (d : ℕ) (α : Type) : Type := edge d → α
+@[reducible] def colouring (d : ℕ) (α : Type*) : Type* := edge d → α
 
 /-- An infinite subset of `ℕ`, viewed as a subsequence. -/
 @[reducible] def subseq : Type := ℕ ↪o ℕ
@@ -31,12 +31,14 @@ with colours taken from `α`.
 ### Notation
 -/
 
+variables {α β γ : Type*} {d : ℕ}
+
 /--
 The actual endpoints of a specific edge identified by a subedge.
 For example, the restriction of the 5-uniform edge (2, 3, 5, 7, 11)
 to the subedge "1st, 3rd, and 4th smallest" is (2, 5, 7).
 -/
-def edge.restrict {d : ℕ} (e : edge d) (s : subedge d) : s ↪o ℕ :=
+def edge.restrict (e : edge d) (s : subedge d) : s ↪o ℕ :=
 (order_embedding.subtype s).trans e
 
 infix ` |e `:80 := edge.restrict
@@ -45,15 +47,14 @@ infix ` |e `:80 := edge.restrict
 For a given subedge, the canonical colouring in which two edges have
 the same colour iff they agree when restricted to that subedge.
 -/
-def subedge.canonical {d : ℕ} (s : subedge d) : colouring d (s ↪o ℕ) :=
+def subedge.canonical (s : subedge d) : colouring d (s ↪o ℕ) :=
 λ e, e |e s
 
 /--
 The restriction of a colouring to the edges contained in a given
 infinite subsequence of `ℕ`.
 -/
-def colouring.restrict {d : ℕ} {α : Type}
-  (f : colouring d α) (S : subseq) : colouring d α :=
+def colouring.restrict (f : colouring d α) (S : subseq) : colouring d α :=
 λ e, f (rel_embedding.trans e S)
 
 infix ` |c `:80 := colouring.restrict
@@ -62,8 +63,7 @@ infix ` |c `:80 := colouring.restrict
 Two colourings are isomorphic iff they induce the same partition on
 the set of edges of the `d`-uniform hypergraph on `ℕ`.
 -/
-def colouring.iso {d : ℕ} {α β : Type}
-  (f : colouring d α) (g : colouring d β) : Prop :=
+def colouring.iso (f : colouring d α) (g : colouring d β) : Prop :=
 ∀ e₁ e₂, (f e₁ = f e₂) ↔ (g e₁ = g e₂)
 
 infix ` ≃c `:25 := colouring.iso
@@ -76,7 +76,7 @@ infix ` ≃c `:25 := colouring.iso
 The (statement of the) canonical Ramsey theorem:
 every colouring contains a canonical subcolouring.
 -/
-def ramsey.statement {d : ℕ} {α : Type} (f : colouring d α) : Prop :=
+def ramsey.statement (f : colouring d α) : Prop :=
 ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical
 
 /-!
@@ -86,13 +86,11 @@ of passing to an infinite subsequence of ℕ.
 -/
 
 /-- Every subcolouring of a canonical colouring is isomorphic. -/
-def canonical_subseq_iso_self.statement
-  {d : ℕ} (s : subedge d) (S : subseq) : Prop :=
+def canonical_subseq_iso_self.statement (s : subedge d) (S : subseq) : Prop :=
 s.canonical |c S ≃c s.canonical
 
 /-- Isomorphic canonical colourings come from identical subedges. -/
-def canonical_inj.statement
-  {d : ℕ} (s t : subedge d) : Prop :=
+def canonical_inj.statement (s t : subedge d) : Prop :=
 s.canonical ≃c t.canonical → s = t
 
 /-!
@@ -101,8 +99,7 @@ s.canonical ≃c t.canonical → s = t
 
 /- `≃c` is an equivalence relation. -/
 namespace colouring.iso
-variables {d : ℕ} {α β γ : Type}
-  {f : colouring d α} {g : colouring d β} {h : colouring d γ}
+variables {f : colouring d α} {g : colouring d β} {h : colouring d γ}
 
 @[refl] lemma refl (f : colouring d α) : f ≃c f :=
 λ x y, iff.rfl
@@ -124,16 +121,15 @@ rel_embedding.trans T S
 
 infix ` |s `:80 := subseq.restrict
 
-lemma colouring.restrict_restrict {d : ℕ} {α : Type}
-  (f : colouring d α) (S T : subseq) :
+lemma colouring.restrict_restrict (f : colouring d α) (S T : subseq) :
   f |c S |c T = f |c (S |s T) := rfl
 
 /-- The first `d` endpoints of a `(d+1)`-edge. -/
-def edge.head {d : ℕ} (e : edge (d+1)) : edge d :=
+def edge.head (e : edge (d+1)) : edge d :=
 rel_embedding.trans fin.cast_succ e
 
 /-- The last endpoint of a `(d+1)`-edge. -/
-def edge.last {d : ℕ} (e : edge (d+1)) : ℕ := e (fin.last d)
+def edge.last (e : edge (d+1)) : ℕ := e (fin.last d)
 
 /--
 The smallest natural number which is
@@ -143,7 +139,7 @@ def edge.lub : ∀ {d : ℕ}, edge d → ℕ
 | 0     _ := 0
 | (d+1) e := (e (fin.last d)) + 1
 
-lemma edge.lt_lub {d : ℕ} (e : edge d) (i : fin d) :
+lemma edge.lt_lub (e : edge d) (i : fin d) :
   e i < e.lub :=
 begin
   cases d,
@@ -152,7 +148,7 @@ begin
   ...      < e.lub          : lt_add_one (e (fin.last d)),
 end
 
-lemma edge.head_lub_le_last {d : ℕ} (e : edge (d+1)) :
+lemma edge.head_lub_le_last (e : edge (d+1)) :
   e.head.lub ≤ e.last :=
 begin
   cases d,
@@ -161,7 +157,7 @@ begin
   simp only [e.lt_iff_lt, fin.mk_lt_mk, lt_add_one],
 end
 
-lemma edge.lub_le_iff {d n : ℕ} (e : edge d) : 
+lemma edge.lub_le_iff {n : ℕ} (e : edge d) : 
   e.lub ≤ n ↔ ∀ i, e i < n := 
 begin
   refine ⟨λ h i, (e.lt_lub _).trans_le h,λ h, _⟩, 
@@ -173,7 +169,7 @@ end
 The `(d+1)`-edge formed from a `d`-edge
 by adding a new largest endpoint.
 -/
-def edge.of_lub_le {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) : edge (d+1) :=
+def edge.of_lub_le (e : edge d) (n : ℕ) (h : e.lub ≤ n) : edge (d+1) :=
 order_embedding.of_map_le_iff (@fin.last_cases _ (λ _, ℕ) n e)
 begin
   rw [edge.lub_le_iff] at h,  
@@ -228,13 +224,34 @@ end
 --   },
 -- end
 
-@[simp] lemma edge.of_lub_le_head_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
+@[simp] lemma edge.of_lub_le_head_eq (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
   (edge.of_lub_le e n h).head = e :=
 by {ext, simp [edge.of_lub_le, edge.head]}
 
-@[simp] lemma edge.of_lub_le_last_eq {d : ℕ} (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
+@[simp] lemma edge.of_lub_le_last_eq (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
   (edge.of_lub_le e n h).last = n :=
 by {simp [edge.of_lub_le, edge.last]}
+
+/-!
+### Some API
+-/
+
+
+
+@[ext] lemma edge.ext {e₁ e₂ : edge d} (h : ∀ i, e₁ i = e₂ i) : e₁ = e₂ := 
+by {ext, rw h}
+
+@[simp] lemma subedge_apply (e : edge d) (s : subedge d) (i : s) :
+  (e |e s) i = e i := rfl 
+
+lemma iso_canonical_iff {s : subedge d} {f : colouring d α} :
+  f ≃c s.canonical ↔ ∀ e₁ e₂, f e₁ = f e₂ ↔ ∀ (i : s), e₁ i = e₂ i := 
+begin
+  unfold colouring.iso subedge.canonical,
+  simp_rw rel_embedding.ext_iff,
+  refl, 
+end 
+ 
 
 /-!
 ### Main proofs
@@ -266,6 +283,9 @@ lemma canonical_inj
   canonical_inj.statement s t :=
 begin
   change s.canonical ≃c t.canonical → s = t, 
+  rw iso_canonical_iff, 
+
+
   sorry,
 end
 
