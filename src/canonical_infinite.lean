@@ -12,11 +12,11 @@ import tactic
 @[reducible] def edge (d : ℕ) : Type* := fin d ↪o ℕ
 
 /--
-A subset of the endpoints of a generic edge, identified by their
+A set of indices for endpoints of a generic edge, identified by their
 relative positions with respect to the ordering on `ℕ`. For example,
 "the 1st, 3rd, and 4th smallest vertices contained in the edge".
 -/
-@[reducible] def subedge (d : ℕ) : Type* := set (fin d)
+@[reducible] def index_set (d : ℕ) : Type* := set (fin d)
 
 /--
 A colouring of the complete `d`-uniform hypergraph on `ℕ`,
@@ -34,21 +34,21 @@ with colours taken from `α`.
 variables {α β γ : Type*} {d : ℕ}
 
 /--
-The actual endpoints of a specific edge identified by a subedge.
+The actual endpoints of a specific edge identified by an index set.
 For example, the restriction of the 5-uniform edge (2, 3, 5, 7, 11)
-to the subedge "1st, 3rd, and 4th smallest" is (2, 5, 7).
+to the index set "1st, 3rd, and 4th smallest" is (2, 5, 7).
 -/
-def edge.restrict (e : edge d) (s : subedge d) : s ↪o ℕ :=
-(order_embedding.subtype s).trans e
+def edge.restrict (e : edge d) (I : index_set d) : I ↪o ℕ :=
+rel_embedding.trans (order_embedding.subtype I) e
 
 infix ` |e `:80 := edge.restrict
 
 /--
-For a given subedge, the canonical colouring in which two edges have
-the same colour iff they agree when restricted to that subedge.
+For a given index set, the canonical colouring in which two edges have
+the same colour iff they agree on that index set.
 -/
-def subedge.canonical (s : subedge d) : colouring d (s ↪o ℕ) :=
-λ e, e |e s
+def index_set.canonical (I : index_set d) : colouring d (I ↪o ℕ) :=
+λ e, e |e I
 
 /--
 The restriction of a colouring to the edges contained in a given
@@ -77,7 +77,7 @@ The (statement of the) canonical Ramsey theorem:
 every colouring contains a canonical subcolouring.
 -/
 def ramsey.statement (f : colouring d α) : Prop :=
-∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical
+∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical
 
 /-!
 The next two lemmas show that `ramsey.statement` is best possible:
@@ -86,12 +86,12 @@ of passing to an infinite subsequence of ℕ.
 -/
 
 /-- Every subcolouring of a canonical colouring is isomorphic. -/
-def canonical_subseq_iso_self.statement (s : subedge d) (S : subseq) : Prop :=
-s.canonical |c S ≃c s.canonical
+def canonical_subseq_iso_self.statement (I : index_set d) (S : subseq) : Prop :=
+I.canonical |c S ≃c I.canonical
 
-/-- Isomorphic canonical colourings come from identical subedges. -/
-def canonical_inj.statement (s t : subedge d) : Prop :=
-s.canonical ≃c t.canonical → s = t
+/-- Isomorphic canonical colourings come from identical index sets. -/
+def canonical_inj.statement (I J : index_set d) : Prop :=
+I.canonical ≃c J.canonical → I = J
 
 /-!
 ### Constructions and lemmas
@@ -241,13 +241,13 @@ by {simp [edge.of_lub_le, edge.last]}
 @[ext] lemma edge.ext {e₁ e₂ : edge d} (h : ∀ i, e₁ i = e₂ i) : e₁ = e₂ := 
 by {ext, rw h}
 
-@[simp] lemma subedge_apply (e : edge d) (s : subedge d) (i : s) :
-  (e |e s) i = e i := rfl 
+@[simp] lemma index_set_apply (e : edge d) (I : index_set d) (i : I) :
+  (e |e I) i = e i := rfl 
 
-lemma iso_canonical_iff {s : subedge d} {f : colouring d α} :
-  f ≃c s.canonical ↔ ∀ e₁ e₂, f e₁ = f e₂ ↔ ∀ (i : s), e₁ i = e₂ i := 
+lemma iso_canonical_iff {I : index_set d} {f : colouring d α} :
+  f ≃c I.canonical ↔ ∀ e₁ e₂, f e₁ = f e₂ ↔ ∀ (i : I), e₁ i = e₂ i := 
 begin
-  unfold colouring.iso subedge.canonical,
+  unfold colouring.iso index_set.canonical,
   simp_rw rel_embedding.ext_iff,
   refl, 
 end 
@@ -258,34 +258,32 @@ end
 -/
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
-  /- ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical -/
+  /- ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical -/
   ramsey.statement f :=
 begin
-  change ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical,
+  change ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical,
   sorry,
 end
 
 lemma canonical_subseq_iso_self
-  {d : ℕ} (s : subedge d) (S : subseq) :
-  /- s.canonical |c S ≃c s.canonical -/
-  canonical_subseq_iso_self.statement s S :=
+  {d : ℕ} (I : index_set d) (S : subseq) :
+  /- I.canonical |c S ≃c I.canonical -/
+  canonical_subseq_iso_self.statement I S :=
 begin
-  change s.canonical |c S ≃c s.canonical,
+  change I.canonical |c S ≃c I.canonical,
   intros e₁ e₂,
   simp_rw [rel_embedding.ext_iff],
-  change (∀ (i : s), S (e₁ i) = S (e₂ i)) ↔ (∀ (i : s), e₁ i = e₂ i),
+  change (∀ (i : I), S (e₁ i) = S (e₂ i)) ↔ (∀ (i : I), e₁ i = e₂ i),
   simp_rw [order_embedding.eq_iff_eq S],
 end
 
 lemma canonical_inj
-  {d : ℕ} (s t : subedge d) :
-  /- s.canonical ≃c t.canonical → s = t -/
-  canonical_inj.statement s t :=
+  {d : ℕ} (I J : index_set d) :
+  /- I.canonical ≃c J.canonical → I = J -/
+  canonical_inj.statement I J :=
 begin
-  change s.canonical ≃c t.canonical → s = t, 
+  change I.canonical ≃c J.canonical → I = J,
   rw iso_canonical_iff, 
-
-
   sorry,
 end
 
