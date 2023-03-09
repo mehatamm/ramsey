@@ -1,4 +1,5 @@
-import tactic
+import tactic.interactive
+import .order_emb
 
 /-!
 # The canonical Ramsey theorem
@@ -165,6 +166,8 @@ begin
   exact nat.lt_iff_add_one_le.mpr (h _), 
 end    
 
+
+
 /--
 The `(d+1)`-edge formed from a `d`-edge
 by adding a new largest endpoint.
@@ -277,15 +280,37 @@ begin
   simp_rw [order_embedding.eq_iff_eq S],
 end
 
+
 lemma canonical_inj
   {d : ℕ} (I J : index_set d) :
   /- I.canonical ≃c J.canonical → I = J -/
   canonical_inj.statement I J :=
 begin
-  change I.canonical ≃c J.canonical → I = J,
-  rw iso_canonical_iff, 
-  sorry,
+  
+  set f₁ : fin d → ℕ := λ i, 2 * i with hf₁_def, 
+  have hf₁ : strict_mono f₁ := λ x x' h, by {simpa [hf₁_def]},
+  set e₁ := order_embedding.of_strict_mono f₁ hf₁ with he₁, 
+
+  set f₂ : fin d → fin d → ℕ := λ x i, if i = x then 2*i + 1 else 2*i with hf₂_def, 
+  have hf₂ : ∀ x, strict_mono (f₂ x),
+  { rintros ⟨x,hx⟩ ⟨i,hi⟩ ⟨i',hi'⟩ (hii' : i < i'), 
+    simp only [hf₂_def], 
+    split_ifs with h h' h',
+    all_goals {linarith}}, 
+
+  intro h, 
+  ext,
+  refine ⟨λ hx, by_contra (λ hx', _),λ hx, by_contra (λ hx', _ )⟩, 
+  all_goals 
+  { set e₂ := order_embedding.of_strict_mono _ (hf₂ x) with he₂, 
+    specialize h e₁ e₂, 
+    simp only [index_set.canonical, rel_embedding.ext_iff, index_set_apply, 
+      order_embedding.coe_of_strict_mono, set_coe.forall, subtype.coe_mk, hf₁_def, hf₂_def] at h, },
+  { simpa using h.mpr (λ i hij, by {rw if_neg, rintro rfl, exact hx' hij, }) _ hx},
+  simpa using h.mp (λ i hij, by {rw if_neg, rintro rfl, exact hx' hij, }) _ hx,
 end
+
+
 
 /-!
 ### Junk
