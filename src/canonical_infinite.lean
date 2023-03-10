@@ -3,6 +3,8 @@ import .order_emb
 import order.order_iso_nat
 import data.finset.sort
 
+noncomputable theory
+
 /-!
 # The canonical Ramsey theorem
 -/
@@ -13,6 +15,13 @@ import data.finset.sort
 
 /-- An edge of the complete `d`-uniform hypergraph on `ℕ`. -/
 @[reducible] def edge (d : ℕ) : Type* := fin d ↪o ℕ
+
+instance edge_finite {d : ℕ} : infinite (edge d.succ):=
+begin
+  set f: ℕ → edge d.succ:= λ x, rel_embedding.trans (@fin.add_nat d.succ x) (fin.coe_order_embedding (d.succ+x)) with f_def,
+  have f_inj: f.injective, intros x y xyeq, rw rel_embedding.ext_iff at xyeq, simp [f_def] at xyeq, assumption,
+  apply infinite.of_injective f this,
+end
 
 /--
 A set of indices for endpoints of a generic edge, identified by their
@@ -260,6 +269,15 @@ begin
   refl, 
 end 
  
+def edge_one_equiv:  ℕ ≃ (edge 1):=
+{ to_fun := λ x, finset.order_emb_of_fin {x} (finset.card_singleton x),
+  inv_fun := λ x, x 0,
+  left_inv := begin
+    intro x, simp,
+  end,
+  right_inv := begin
+    intro x, ext, simp,
+  end }
 
 /-!
 ### Main proofs
@@ -290,13 +308,18 @@ begin
   rw this, apply hy,
 end
 
+
 lemma seq_mono_poly {α : Type} (f: colouring 1 α) : ∃ S: subseq,
 (∀ a b : edge 1, (f |c S) a = (f |c S) b) ∨
 (∀ a b : edge 1, a ≠ b → (f |c S) a ≠ (f |c S) b)
 :=
 begin
-  rcases polychromatic_pigeonhole f with ⟨y, hy⟩, set f': ℕ → α:= λ x, f (finset.order_emb_of_fin {x} (finset.card_singleton x)) ,
-  
+  rcases polychromatic_pigeonhole f with ⟨y, hy⟩, set pm:= {x: ℕ | edge_one_equiv x ∈ (f ⁻¹' {y})},
+  haveI: infinite pm, set f_pm: pm → f ⁻¹' {y}:= λ x, ⟨edge_one_equiv x.val, x.property⟩ with f_pm_def,
+  have f_pm_surj: f_pm.surjective, intro z, use edge_one_equiv.symm z.val, simp, 
+  have:= set.mem_preimage.1 z.2, apply set.eq_of_mem_singleton this, rw f_pm_def, simp,
+  apply @infinite.of_surjective _ _ hy f_pm f_pm_surj,
+  set S:= (nat.subtype.order_iso_of_nat pm).to_order_embedding, 
 end
 
 structure mono_poly {d : ℕ} {α : Type} : Type :=
