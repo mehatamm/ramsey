@@ -1,4 +1,6 @@
 import tactic
+import order.order_iso_nat
+import data.finset.sort
 
 /-!
 # The canonical Ramsey theorem
@@ -10,6 +12,13 @@ import tactic
 
 /-- An edge of the complete `d`-uniform hypergraph on `ℕ`. -/
 @[reducible] def edge (d : ℕ) : Type := fin d ↪o ℕ
+
+instance edge_inf {d : ℕ}: infinite (edge d.succ):=
+begin
+  set f: ℕ → edge d.succ:=λ x : ℕ, (rel_embedding.trans (@fin.add_nat (d.succ) x) (fin.coe_order_embedding (d.succ+x))) with f_def,
+  have: f.injective, intros x y xyeq, rw rel_embedding.ext_iff at xyeq, simp_rw [f_def] at xyeq, dsimp at xyeq, linarith [xyeq 0],
+  exact infinite.of_injective f this,
+end
 
 /--
 A subset of the endpoints of a generic edge, identified by their
@@ -124,6 +133,9 @@ rel_embedding.trans T S
 
 infix ` |s `:80 := subseq.restrict
 
+def subseq.refl : subseq:=
+  (order_iso.refl ℕ).to_order_embedding
+
 lemma colouring.restrict_restrict {d : ℕ} {α : Type}
   (f : colouring d α) (S T : subseq) :
   f |c S |c T = f |c (S |s T) := rfl
@@ -226,13 +238,100 @@ end
 /-!
 ### Main proofs
 -/
+namespace iterate
+
+lemma order_embedding.le_self (x : ℕ) (f: ℕ ↪o ℕ):
+x ≤ f x:=
+begin
+  induction x with x hx, exact nat.zero_le _, have:= f.map_rel_iff'.2 (le_of_lt (nat.lt_succ_self x)), 
+  have inj: f x ≠ f x.succ, intro hf, have:= f.inj' hf, apply nat.succ_ne_self x this.symm,
+  have:= lt_of_le_of_ne this inj, rw nat.succ_le_iff, exact lt_of_le_of_lt hx this,
+end
+
+#check finite.exists_infinite_fiber
+#check nat.order_embedding_of_set
+
+
+theorem polychromatic_pigeonhole {α β : Type} [infinite α] (f : α → β):
+(∃ y : β, infinite (f ⁻¹' {y})) ∨ infinite (set.range f):=
+begin
+  by_cases (infinite (set.range f)),right, assumption,
+  left, rw not_infinite_iff_finite at h,
+  set f_aux : α → set.range f:= λ α, ⟨f α, set.mem_range_self α⟩,
+  cases @finite.exists_infinite_fiber _ _ _ h f_aux with y hy, use y,
+  have : f ⁻¹' {y} = f_aux ⁻¹' {y}, ext, simp [f_aux], split, intro fxy, ext, apply fxy, 
+  intro fxy, have :f x ∈ set.range f, apply set.mem_range_self x, rw ← fxy, simp [this],
+  rw this, apply hy,
+end
+
+lemma seq_mono_poly {α : Type} (f: colouring 1 α) : ∃ S: subseq,
+(∀ a b : edge 1, (f |c S) a = (f |c S) b) ∨
+(∀ a b : edge 1, a ≠ b → (f |c S) a ≠ (f |c S) b)
+:=
+begin
+  rcases polychromatic_pigeonhole f with ⟨y, hy⟩, set f': ℕ → α:= λ x, f (finset.order_emb_of_fin {x} (finset.card_singleton x)) ,
+  
+end
+
+structure mono_poly {d : ℕ} {α : Type} : Type :=
+(f: colouring (d+1) α)
+(seqhead: ℕ)
+(seqtail: subseq)
+(canonical: ∀ e : {e : edge d | e.lub ≤ seqhead},
+  (∀ a b : {x : ℕ | seqhead ≤ seqtail x}, 
+    (f |c seqtail) (e.1.of_lub_le a.1 (le_trans e.2 a.2))=
+    (f |c seqtail) (e.1.of_lub_le b.1 (le_trans e.2 b.2))) ∨
+  (∀ a b : {x : ℕ | seqhead ≤ seqtail x}, a ≠ b → 
+    (f |c seqtail) (e.1.of_lub_le a.1 (le_trans e.2 a.2))≠
+    (f |c seqtail) (e.1.of_lub_le b.1 (le_trans e.2 b.2)))
+)
+
+
+def mono_poly_init {d : ℕ} {α : Type} (f : colouring (d+1) α) : mono_poly := 
+{ f := f,
+  seqhead := {0},
+  seqtail := if d=0 then ,
+  head_le_tail := _,
+  heads_canonical := _ }
+
+def next : state → state
+| ⟨ff, n⟩ := ⟨tt, n⟩
+| ⟨tt, n⟩ := ⟨ff, n+1⟩
+
+def postprocess : state → ℕ :=
+λ (s : state), s.2
+
+def my_seq : ℕ → ℕ :=
+λ (n : ℕ), postprocess (nat.iterate next n init)
+
+end /-namespace-/ iterate
+
+
+variables (d : ℕ) (e : edge d) (a : (Π x : ℕ, e.lub ≤ x))
+#check  
+
+def subseq_filter_tail {d : ℕ} {α : Type} (f : colouring (d+1) α): 
+∃ S : subseq, ∀ e : (edge d), 
+(∀ a b : {x : ℕ | e.lub ≤ x}, 
+(f |c S) (e.of_lub_le a.1 a.2) = (f |c S) (e.of_lub_le b.1 b.2)) ∨
+∀ a b : {x : ℕ | e.lub ≤ x}, a ≠ b →
+(f |c S) (e.of_lub_le a.1 a.2) ≠ (f |c S) (e.of_lub_le b.1 b.2)
+:=
+begin
+
+end
+
+
+#check subseq_filter_tail
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
   /- ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical -/
   ramsey.statement f :=
 begin
   change ∃ (S : subseq) (s : subedge d), f |c S ≃c s.canonical,
-  sorry,
+  induction d with d hd, use subseq.refl, use ∅, intros e₁ e₂, 
+  have edge_eq: e₁=e₂, ext, apply fin_zero_elim x, simp [edge_eq],
+  
 end
 
 lemma canonical_subseq_iso_self
