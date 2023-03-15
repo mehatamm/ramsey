@@ -4,6 +4,7 @@ import order.order_iso_nat
 import data.finset.sort
 
 noncomputable theory
+open_locale classical
 
 /-!
 # The canonical Ramsey theorem
@@ -279,6 +280,26 @@ def edge_one_equiv:  ℕ ≃ (edge 1):=
     intro x, ext, simp,
   end }
 
+lemma trans_range (e : edge d) (s : set ℕ) [infinite s]: 
+set.range (rel_embedding.trans e (nat.order_embedding_of_set s)) ⊆ s:=
+begin
+  intros x xr, rw set.mem_range at xr, cases xr with y hy, 
+  rw rel_embedding.trans_apply at hy, rw ← nat.order_embedding_of_set_range s,
+  rw set.mem_range, use (e y), apply hy,
+end
+
+lemma trans_inj (a b : edge d) (S : subseq) (h: a ≠ b): rel_embedding.trans a S ≠rel_embedding.trans b S:=
+begin
+  intro req, rw rel_embedding.ext_iff at req, simp_rw [rel_embedding.trans_apply] at req, simp [S.inj'] at req, 
+  rw ←rel_embedding.ext_iff at req, contradiction, 
+end
+
+lemma equiv_trans_mem_order_emb_set (s : set ℕ) [infinite s]:
+∀ a : edge 1, edge_one_equiv.symm (rel_embedding.trans a (nat.order_embedding_of_set s)) ∈ s:=
+begin
+  intro a, unfold edge_one_equiv, simp, 
+end
+
 /-!
 ### Main proofs
 -/
@@ -309,69 +330,66 @@ begin
 end
 
 
-lemma seq_mono_poly {α : Type} (f: colouring 1 α) : ∃ S: subseq,
+lemma seq_mono_poly {α : Type} (f: colouring 1 α) : ∃ S: subseq, --ended up being quite long
 (∀ a b : edge 1, (f |c S) a = (f |c S) b) ∨
 (∀ a b : edge 1, a ≠ b → (f |c S) a ≠ (f |c S) b)
 :=
 begin
-  rcases polychromatic_pigeonhole f with ⟨y, hy⟩, set pm:= {x: ℕ | edge_one_equiv x ∈ (f ⁻¹' {y})},
+  rcases polychromatic_pigeonhole f with ⟨y, hy⟩, set pm:= {x: ℕ | edge_one_equiv x ∈ (f ⁻¹' {y})} with pm_def,
   haveI: infinite pm, set f_pm: pm → f ⁻¹' {y}:= λ x, ⟨edge_one_equiv x.val, x.property⟩ with f_pm_def,
-  have f_pm_surj: f_pm.surjective, intro z, use edge_one_equiv.symm z.val, simp, 
-  have:= set.mem_preimage.1 z.2, apply set.eq_of_mem_singleton this, rw f_pm_def, simp,
+  have f_pm_surj: f_pm.surjective, intro z, use edge_one_equiv.symm z.val, 
+  simp only [subtype.val_eq_coe, set.mem_set_of_eq, equiv.apply_symm_apply, set.mem_preimage, set.mem_singleton_iff], 
+  have:= set.mem_preimage.1 z.2, apply set.eq_of_mem_singleton this, rw f_pm_def, 
+  simp only [subtype.val_eq_coe, equiv.apply_symm_apply, subtype.coe_eta],
   apply @infinite.of_surjective _ _ hy f_pm f_pm_surj,
-  set S:= (nat.subtype.order_iso_of_nat pm).to_order_embedding, 
+  set S:= nat.order_embedding_of_set pm, use S, left, intros a b, 
+  have fr: set.range (f |c S) = {y}, unfold colouring.restrict,
+  ext, rw set.mem_singleton_iff, rw set.mem_range, have pm_y: ∀ (e : edge 1), set.range e ⊆ pm → f e = y,
+  intros e epm, have e0pm:= epm (set.mem_range_self 0), rw [pm_def, set.mem_set_of] at e0pm,
+  rw set.mem_preimage at e0pm, rw set.mem_singleton_iff at e0pm, have: f (edge_one_equiv (e 0))= f e, congr, unfold edge_one_equiv, ext,
+  simp, rw ← this, exact e0pm,
+  split, rintros ⟨z, hz⟩, rw ← hz, apply pm_y (rel_embedding.trans z S) (trans_range z pm),
+  intros xeqy, rw xeqy, use a, apply pm_y (rel_embedding.trans a S) (trans_range a pm),
+  suffices: ∀ e : edge 1, (f |c S) e = y, rw [this b, this a], intro e,
+  rw ← set.mem_singleton_iff, rw ← fr, exact set.mem_range_self e,
+  have f_range_choose: ∀ n ∈ set.range f, ∃ e : (edge 1), f e = n:= λ e ein, set.mem_range.1 ein,
+  choose! fn h_fn using f_range_choose, set s:= {x : ℕ | edge_one_equiv x ∈ (fn '' (set.range f))}, 
+  --have: ∀ x : s, f (edge_one_equiv x) ∈ 
+  haveI s_inf: infinite s, set f_s: s → set.range f:= λ x, ⟨f (edge_one_equiv x), set.mem_range_self _⟩ with f_s_def,
+  apply @infinite.of_surjective _ _ h f_s _, intro x, use edge_one_equiv.symm (fn x.val),
+  rw set.mem_set_of, simp only [subtype.val_eq_coe, equiv.apply_symm_apply, set.mem_image,
+  set.mem_range, exists_exists_eq_and], cases set.mem_range.1 x.prop with y hy, use y,
+  rw hy, rw f_s_def, dsimp, ext, have: f (fn x)= x:= h_fn x x.2, simp [this],
+  set S:= nat.order_embedding_of_set s, use S, right, intros a b aneb faefb,
+  unfold colouring.restrict at faefb, have rel_ne:= trans_inj a b S aneb, 
+  have equiv_mem:= equiv_trans_mem_order_emb_set s, 
+  simp_rw [set.mem_set_of, set.mem_image] at equiv_mem, 
+  simp only [set.mem_range, equiv.apply_symm_apply, exists_exists_eq_and] at equiv_mem, 
+  cases equiv_mem a with a_1 ha_1, cases equiv_mem b with b_1 hb_1,
+  rw [← ha_1, ← hb_1] at faefb, rw h_fn (f a_1) (set.mem_range_self a_1) at faefb,
+  rw h_fn (f b_1) (set.mem_range_self b_1) at faefb, rw faefb at ha_1, rw hb_1 at ha_1,
+  apply rel_ne, exact ha_1.symm, 
 end
 
-structure mono_poly {d : ℕ} {α : Type} : Type :=
-(f: colouring (d+1) α)
-(seqhead: ℕ)
-(seqtail: subseq)
-(canonical: ∀ e : {e : edge d | e.lub ≤ seqhead},
-  (∀ a b : {x : ℕ | seqhead ≤ seqtail x}, 
-    (f |c seqtail) (e.1.of_lub_le a.1 (le_trans e.2 a.2))=
-    (f |c seqtail) (e.1.of_lub_le b.1 (le_trans e.2 b.2))) ∨
-  (∀ a b : {x : ℕ | seqhead ≤ seqtail x}, a ≠ b → 
-    (f |c seqtail) (e.1.of_lub_le a.1 (le_trans e.2 a.2))≠
-    (f |c seqtail) (e.1.of_lub_le b.1 (le_trans e.2 b.2)))
-)
+theorem constraints_apply 
+(constraints: ℕ → subseq → Prop)
+(constraints_stable: ∀ g : ℕ, ∀ S T : subseq, constraints g S → constraints g (rel_embedding.trans S T))
+(constraints_reachable: ∀ g : ℕ, ∀ S: subseq, ∃ T : subseq, constraints g (rel_embedding.trans S T))
+:∀ S : subseq, ∃ T : subseq, ∀ g, constraints g (rel_embedding.trans S T):=
+begin
+intro S, sorry
+end
 
 
-def mono_poly_init {d : ℕ} {α : Type} (f : colouring (d+1) α) : mono_poly := 
-{ f := f,
-  seqhead := {0},
-  seqtail := if d=0 then ,
-  head_le_tail := _,
-  heads_canonical := _ }
 
-def next : state → state
-| ⟨ff, n⟩ := ⟨tt, n⟩
-| ⟨tt, n⟩ := ⟨ff, n+1⟩
 
-def postprocess : state → ℕ :=
-λ (s : state), s.2
-
-def my_seq : ℕ → ℕ :=
-λ (n : ℕ), postprocess (nat.iterate next n init)
 
 end /-namespace-/ iterate
 
 
-variables (d : ℕ) (e : edge d) (a : (Π x : ℕ, e.lub ≤ x))
-#check  
-
-def subseq_filter_tail {d : ℕ} {α : Type} (f : colouring (d+1) α): 
-∃ S : subseq, ∀ e : (edge d), 
-(∀ a b : {x : ℕ | e.lub ≤ x}, 
-(f |c S) (e.of_lub_le a.1 a.2) = (f |c S) (e.of_lub_le b.1 b.2)) ∨
-∀ a b : {x : ℕ | e.lub ≤ x}, a ≠ b →
-(f |c S) (e.of_lub_le a.1 a.2) ≠ (f |c S) (e.of_lub_le b.1 b.2)
-:=
-begin
-
-end
 
 
-#check subseq_filter_tail
+
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
   /- ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical -/
