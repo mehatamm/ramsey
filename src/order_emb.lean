@@ -1,5 +1,8 @@
 import tactic 
 
+/-- An infinite subset of `ℕ`, viewed as a subsequence. -/
+@[reducible] def subseq : Type := ℕ ↪o ℕ
+
 section mul 
 
 variables {α : Type*} [has_mul α] [has_zero α] [partial_order α] 

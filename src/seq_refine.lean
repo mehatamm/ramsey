@@ -1,4 +1,4 @@
-import .canonical_infinite 
+import .order_emb 
 
 open_locale classical 
 

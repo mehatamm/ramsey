@@ -2,6 +2,8 @@ import tactic.interactive
 import .order_emb
 import order.order_iso_nat
 import data.finset.sort
+import .seq_refine
+
 
 noncomputable theory
 open_locale classical
@@ -17,11 +19,11 @@ open_locale classical
 /-- An edge of the complete `d`-uniform hypergraph on `ℕ`. -/
 @[reducible] def edge (d : ℕ) : Type* := fin d ↪o ℕ
 
-instance edge_finite {d : ℕ} : infinite (edge d.succ):=
+instance edge_infinite {d : ℕ} : infinite (edge d.succ):=
 begin
   set f: ℕ → edge d.succ:= λ x, rel_embedding.trans (@fin.add_nat d.succ x) (fin.coe_order_embedding (d.succ+x)) with f_def,
   have f_inj: f.injective, intros x y xyeq, rw rel_embedding.ext_iff at xyeq, simp [f_def] at xyeq, assumption,
-  apply infinite.of_injective f this,
+  apply infinite.of_injective f f_inj,
 end
 
 /--
@@ -37,8 +39,6 @@ with colours taken from `α`.
 -/
 @[reducible] def colouring (d : ℕ) (α : Type*) : Type* := edge d → α
 
-/-- An infinite subset of `ℕ`, viewed as a subsequence. -/
-@[reducible] def subseq : Type := ℕ ↪o ℕ
 
 /-!
 ### Notation
@@ -150,8 +150,8 @@ def edge.last (e : edge (d+1)) : ℕ := e (fin.last d)
 /-- Whether a `(d)` edge has as its last endpoint
 a particular natural number-/
 def edge.ends_on : ∀ {d : ℕ}, edge d → ℕ → Prop
-| 0 _ _:= false
-| (d+1) e n:= (e d) = n
+| 0 _ _:= true
+| (d+1) e n:= e (fin.last d) = n
 
 /--
 The smallest natural number which is
@@ -379,27 +379,36 @@ end
 
 end /-namespace-/ iterate
 
-def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α) (S : subseq):=
+def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 (∀ a b : {x : ℕ | e.lub ≤ x}, 
-(f |c S) (e.of_lub_le a.1 a.2) = (f |c S) (e.of_lub_le b.1 b.2))
+f (e.of_lub_le a.1 a.2) = f (e.of_lub_le b.1 b.2))
 
-def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α) (S : subseq):=
+def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 (∀ a b : {x : ℕ | e.lub ≤ x}, a ≠ b →
-(f |c S) (e.of_lub_le a.1 a.2) ≠ (f |c S) (e.of_lub_le b.1 b.2)) 
+f (e.of_lub_le a.1 a.2) ≠ f (e.of_lub_le b.1 b.2)) 
 
 def constraints {d : ℕ} (f : colouring (d+1) α) : ℕ → subseq → Prop:=
-λ n, λ S, ∀ e : (edge d), e.ends_on n → (e.monochromatic f S ∨ e.polychromatic f S)
+λ n, λ S, ∀ e : (edge d), (e.lub = n) → (e.monochromatic (f |c S) ∨ e.polychromatic (f |c S))
 
 lemma constraints_stable {d : ℕ} (f : colouring (d+1) α):
 ∀ g : ℕ, ∀ S T : subseq, (constraints f) g S → (constraints f) g (rel_embedding.trans T S):=
-sorry
+begin
+  intros g S T constr_S e e_end_g, sorry
+end
 
 lemma constraints_reachable {d : ℕ} (f : colouring (d+1) α):
 ∀ (g : ℕ) (S : subseq), ∃ (T : subseq), 
 (∀ i ≤ g, T i = i) ∧ (constraints f) g (rel_embedding.trans T S):=
 sorry
 
-
+theorem all_heads_mono_poly {d : ℕ} (f : colouring (d+1) α) (S : subseq):
+∃ T : subseq, ∀ e : edge d, 
+e.monochromatic (f |c rel_embedding.trans T S) ∨ 
+e.polychromatic (f |c rel_embedding.trans T S):=
+begin
+  cases constraints_apply (constraints f) (constraints_stable f) (constraints_reachable f) S with T ht,
+  use T, intro e, exact ht e.lub e rfl, 
+end
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
   /- ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical -/
@@ -407,7 +416,7 @@ lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
 begin
   change ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical,
   induction d with d hd, use subseq.refl, use ∅, intros e₁ e₂, 
-  have edge_eq: e₁=e₂, ext, apply fin_zero_elim x, simp [edge_eq],
+  have edge_eq: e₁=e₂, ext, apply fin_zero_elim i, simp [edge_eq],
   
 end
 
