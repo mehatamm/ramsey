@@ -147,6 +147,12 @@ rel_embedding.trans fin.cast_succ e
 /-- The last endpoint of a `(d+1)`-edge. -/
 def edge.last (e : edge (d+1)) : ℕ := e (fin.last d)
 
+/-- Whether a `(d)` edge has as its last endpoint
+a particular natural number-/
+def edge.ends_on : ∀ {d : ℕ}, edge d → ℕ → Prop
+| 0 _ _:= false
+| (d+1) e n:= (e d) = n
+
 /--
 The smallest natural number which is
 strictly bigger than all endpoints.
@@ -371,23 +377,27 @@ begin
   apply rel_ne, exact ha_1.symm, 
 end
 
-theorem constraints_apply 
-(constraints: ℕ → subseq → Prop)
-(constraints_stable: ∀ g : ℕ, ∀ S T : subseq, constraints g S → constraints g (rel_embedding.trans S T))
-(constraints_reachable: ∀ g : ℕ, ∀ S: subseq, ∃ T : subseq, constraints g (rel_embedding.trans S T))
-:∀ S : subseq, ∃ T : subseq, ∀ g, constraints g (rel_embedding.trans S T):=
-begin
-intro S, sorry
-end
-
-
-
-
-
 end /-namespace-/ iterate
 
+def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α) (S : subseq):=
+(∀ a b : {x : ℕ | e.lub ≤ x}, 
+(f |c S) (e.of_lub_le a.1 a.2) = (f |c S) (e.of_lub_le b.1 b.2))
 
+def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α) (S : subseq):=
+(∀ a b : {x : ℕ | e.lub ≤ x}, a ≠ b →
+(f |c S) (e.of_lub_le a.1 a.2) ≠ (f |c S) (e.of_lub_le b.1 b.2)) 
 
+def constraints {d : ℕ} (f : colouring (d+1) α) : ℕ → subseq → Prop:=
+λ n, λ S, ∀ e : (edge d), e.ends_on n → (e.monochromatic f S ∨ e.polychromatic f S)
+
+lemma constraints_stable {d : ℕ} (f : colouring (d+1) α):
+∀ g : ℕ, ∀ S T : subseq, (constraints f) g S → (constraints f) g (rel_embedding.trans T S):=
+sorry
+
+lemma constraints_reachable {d : ℕ} (f : colouring (d+1) α):
+∀ (g : ℕ) (S : subseq), ∃ (T : subseq), 
+(∀ i ≤ g, T i = i) ∧ (constraints f) g (rel_embedding.trans T S):=
+sorry
 
 
 
