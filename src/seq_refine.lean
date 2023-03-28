@@ -95,11 +95,16 @@ begin
     exact subseq.trans_assoc, 
   },
   have reachable_from_step: ∀ n : ℕ, ∃ T : subseq, S₁= rel_embedding.trans T (f'^[n] (0, S)).2,
-  intro n, apply subseq.reachable_trans _ S₁, intro i, cases le_or_gt n i, 
-  cases seqs_trans n i h with T ht, simp [h_the_seq, ht], simp [h_the_seq],
-  use i, exact (hterm i n (le_of_lt h.lt)).symm, cases reachable_from_step 0 with T₀ hT₀, 
+  { intro n, 
+    apply subseq.reachable_trans _ S₁, intro i, cases le_or_gt n i, 
+    cases seqs_trans n i h with T ht, simp [h_the_seq, ht], simp [h_the_seq],
+    use i, 
+    exact (hterm i n (le_of_lt h.lt)).symm },
+  cases reachable_from_step 0 with T₀ hT₀, 
   use T₀, intro g, simp at hT₀, rw ←hT₀, cases reachable_from_step g.succ with T₁ ht₁,
-  rw ht₁, apply constraints_stable g _ T₁, apply constr g,  
+  rw ht₁, 
+  apply constraints_stable g _ T₁, 
+  apply constr g,  
 end
 
 

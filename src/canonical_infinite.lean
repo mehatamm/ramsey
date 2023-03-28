@@ -379,21 +379,25 @@ end
 
 end /-namespace-/ iterate
 
-def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
-(∀ a b : {x : ℕ | e.lub = x}, 
+def edge.monochromatic {d : ℕ} (e : edge d) (f : colouring (d+1) α):=
+(∀ a b : {x : ℕ | e.lub ≤ x}, 
 f (e.of_lub_le a.1 a.2) = f (e.of_lub_le b.1 b.2))
 
+def edge.monochromatic' {d : ℕ} (e : edge d) (f : colouring (d+1) α):=
+(∀ a b (ha : e.lub ≤ a) (hb : e.lub ≤ b), 
+f (e.of_lub_le a ha) = f (e.of_lub_le b hb))
+
 def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
-(∀ a b : {x : ℕ | e.lub = x}, a ≠ b →
+(∀ a b : {x : ℕ | e.lub ≤ x}, a ≠ b →
 f (e.of_lub_le a.1 a.2) ≠ f (e.of_lub_le b.1 b.2)) 
 
-def constraints {d : ℕ} (f : colouring (d+1) α) : ℕ → subseq → Prop:=
+def constraints {d : ℕ} (f : colouring (d+1) α) : ℕ → subseq → Prop :=
 λ n, λ S, ∀ e : (edge d), (e.lub ≤ n) → (e.monochromatic (f |c S) ∨ e.polychromatic (f |c S))
 
 lemma constraints_stable {d : ℕ} (f : colouring (d+1) α):
-∀ g : ℕ, ∀ S T : subseq, (constraints f) g S → (constraints f) g (rel_embedding.trans T S):=
+∀ n : ℕ, ∀ S T : subseq, (constraints f) n S → (constraints f) n (rel_embedding.trans T S):=
 begin
-  intros g S T constr_S e e_end_g, cases constr_S e e_end_g with mono poly, 
+  intros n S T constr_S e e_end_g, cases constr_S e e_end_g with mono poly, 
   {
     left, unfold edge.monochromatic at *, intros a b, unfold colouring.restrict at *, 
   },
