@@ -380,6 +380,10 @@ def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 (∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b,    
 f (e.of_lub_le a h_a) = f (e.of_lub_le b h_b))
 
+def edge.monochromatic' {d : ℕ} (e : edge d) (f : colouring (d+1) α):=
+(∀ a b (ha : e.lub ≤ a) (hb : e.lub ≤ b), 
+f (e.of_lub_le a ha) = f (e.of_lub_le b hb))
+
 def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 (∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b, a ≠ b →
 f (e.of_lub_le a h_a) ≠ f (e.of_lub_le b h_b)) 
