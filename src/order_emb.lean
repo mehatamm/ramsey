@@ -3,6 +3,22 @@ import tactic
 /-- An infinite subset of `ℕ`, viewed as a subsequence. -/
 @[reducible] def subseq : Type := ℕ ↪o ℕ
 
+lemma subseq.le_self (x : ℕ) (f: subseq):
+x ≤ f x:=
+begin
+  induction x with x hx, exact nat.zero_le _, have:= f.map_rel_iff'.2 (le_of_lt (nat.lt_succ_self x)), 
+  have inj: f x ≠ f x.succ, intro hf, have:= f.inj' hf, apply nat.succ_ne_self x this.symm,
+  have:= lt_of_le_of_ne this inj, rw nat.succ_le_iff, exact lt_of_le_of_lt hx this,
+end
+
+def n_preserving (n : ℕ) (S : subseq):= ∀ i ≤ n, S i = i 
+
+def n_preserving_of_succ {n : ℕ} {S : subseq} (h: n_preserving n.succ S):
+n_preserving n S:=
+begin
+  intros i ilen, apply h i (nat.le_succ_of_le ilen),
+end
+
 section mul 
 
 variables {α : Type*} [has_mul α] [has_zero α] [partial_order α] 

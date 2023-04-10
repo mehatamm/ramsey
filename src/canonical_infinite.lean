@@ -187,6 +187,11 @@ begin
   exact nat.lt_iff_add_one_le.mpr (h _), 
 end    
 
+lemma edge.le_of_lub_eq {n : ℕ} (e : edge d) :
+  e.lub = n → ∀ i, e i < n :=
+begin
+  intro lub_eq, exact e.lub_le_iff.1 (le_of_eq lub_eq),
+end
 
 
 /--
@@ -311,28 +316,21 @@ end
 -/
 namespace iterate
 
-lemma order_embedding.le_self (x : ℕ) (f: ℕ ↪o ℕ):
-x ≤ f x:=
-begin
-  induction x with x hx, exact nat.zero_le _, have:= f.map_rel_iff'.2 (le_of_lt (nat.lt_succ_self x)), 
-  have inj: f x ≠ f x.succ, intro hf, have:= f.inj' hf, apply nat.succ_ne_self x this.symm,
-  have:= lt_of_le_of_ne this inj, rw nat.succ_le_iff, exact lt_of_le_of_lt hx this,
-end
-
 #check finite.exists_infinite_fiber
 #check nat.order_embedding_of_set
 
 
 theorem polychromatic_pigeonhole {α β : Type} [infinite α] (f : α → β):
-(∃ y : β, infinite (f ⁻¹' {y})) ∨ infinite (set.range f):=
+(∃ y : β, (f ⁻¹' {y}).infinite) ∨ (set.range f).infinite:=
 begin
-  by_cases (infinite (set.range f)),right, assumption,
-  left, rw not_infinite_iff_finite at h,
+  by_cases (set.range f).infinite ,right, assumption,
+  left, rw set.not_infinite at h,
   set f_aux : α → set.range f:= λ α, ⟨f α, set.mem_range_self α⟩,
-  cases @finite.exists_infinite_fiber _ _ _ h f_aux with y hy, use y,
+  haveI r_f: finite (set.range f), apply @finite.of_fintype _ _, apply set.finite.fintype h,
+  cases @finite.exists_infinite_fiber _ _ _ r_f f_aux with y hy, use y,
   have : f ⁻¹' {y} = f_aux ⁻¹' {y}, ext, simp [f_aux], split, intro fxy, ext, apply fxy, 
   intro fxy, have :f x ∈ set.range f, apply set.mem_range_self x, rw ← fxy, simp [this],
-  rw this, apply hy,
+  rw this, apply set.infinite_coe_iff.1 hy,
 end
 
 
@@ -377,32 +375,332 @@ begin
   apply rel_ne, exact ha_1.symm, 
 end
 
-end /-namespace-/ iterate
 
 def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
-(∀ a b : {x : ℕ | e.lub = x}, 
-f (e.of_lub_le a.1 a.2) = f (e.of_lub_le b.1 b.2))
+(∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b,    
+f (e.of_lub_le a h_a) = f (e.of_lub_le b h_b))
 
 def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
-(∀ a b : {x : ℕ | e.lub = x}, a ≠ b →
-f (e.of_lub_le a.1 a.2) ≠ f (e.of_lub_le b.1 b.2)) 
+(∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b, a ≠ b →
+f (e.of_lub_le a h_a) ≠ f (e.of_lub_le b h_b)) 
+
+@[reducible] def preserving_pre_piecewise (l : ℕ) (pre : set ℕ) [infinite pre] 
+(subtype_prop : ∀ x : ℕ, l ≤ nat.subtype.of_nat pre x)
+: subseq:=
+{ to_fun := λ x : ℕ, if h: l ≤ x then (nat.order_embedding_of_set pre) x else (@rel_embedding.refl ℕ (≤)) x,
+  inj' := begin
+    intros a b abeq, cases decidable.em (l ≤ a) with l_le_a l_gt_a, 
+    {
+      cases decidable.em (l ≤ b) with l_le_b l_gt_b,
+      {
+        simp only [l_le_a, l_le_b, function.comp_app, dite_eq_ite, if_true] at abeq,
+        exact (nat.order_embedding_of_set pre).inj' abeq,  
+      },
+      {
+        simp only [l_le_a, l_gt_b, function.comp_app, dite_eq_ite, if_true, if_false] at abeq,
+        simp at abeq, have:= subtype_prop a, rw abeq at this, exact absurd this l_gt_b,
+      },
+    },
+    cases decidable.em (l ≤ b) with l_le_b l_gt_b,
+    {
+      simp [l_gt_a, l_le_b, function.comp_app, dite_eq_ite, if_true, if_false] at abeq,
+      have:= subtype_prop b, rw ← abeq at this, apply absurd this l_gt_a,
+    },
+    {
+      simp only [l_gt_a, l_gt_b, function.comp_app, dite_eq_ite, if_false] at abeq,
+      exact abeq,
+    },
+  end,
+  map_rel_iff' := begin
+    intros a b, cases decidable.em (l ≤ a) with l_le_a l_gt_a,
+    {
+      cases decidable.em (l ≤ b) with l_le_b l_gt_b,
+      {
+        simp only [l_le_a, l_le_b, dite_eq_ite, if_true, function.embedding.coe_fn_mk,
+  subtype.coe_le_coe], exact (nat.order_embedding_of_set pre).map_rel_iff',
+      },
+      {
+        simp only [l_le_a, l_gt_b, dite_eq_ite, if_true, nat.coe_order_embedding_of_set, function.comp_app,
+  rel_embedding.refl_apply, if_false, function.embedding.coe_fn_mk], 
+        have:= subtype_prop a, split,
+        intro h_f, exact absurd (le_trans this h_f) l_gt_b, intro h_f, 
+        exact absurd (le_trans l_le_a h_f) l_gt_b,
+      },
+    },
+    {
+      cases decidable.em (l ≤ b) with l_le_b l_gt_b,
+      {
+        simp [l_gt_a, l_le_b, function.comp_app, dite_eq_ite, if_true, if_false],
+      have:= subtype_prop b, split, intro h, apply le_trans (le_of_not_le l_gt_a) l_le_b,
+      intro h, apply le_trans (le_of_not_le l_gt_a) this,
+      },
+      {
+        simp [l_gt_a, l_gt_b, function.comp_app, dite_eq_ite, if_false],
+      },
+    },
+  end }
+
+lemma restrict_assoc {d : ℕ} {f : colouring (d+1) α} {S T : subseq} {e : edge (d+1)}:
+(f |c rel_embedding.trans T S) e = (f |c S) (rel_embedding.trans e T):=
+begin
+  unfold colouring.restrict, congr, 
+end
+
+lemma trans_of_lub_preserving {d n x : ℕ} {e : edge d} (h_n : n.succ = e.lub)
+{T : subseq} (h_t: n_preserving n T) (h_x : e.lub ≤ x):
+rel_embedding.trans (e.of_lub_le x h_x) T = e.of_lub_le (T x) (le_trans h_x (T.le_self x)):=
+begin
+  ext, revert i, refine fin.last_cases _ _, simp [edge.of_lub_le], simp [edge.of_lub_le],
+  intro i, have:= e.lt_lub i, unfold n_preserving at h_t, rw ← h_n at this,
+  exact h_t (e i) (nat.le_of_lt_succ this),
+end
+
+
+lemma preserving_pre_not_le {l x : ℕ} {pre : set ℕ} [infinite pre]
+{subtype_prop : ∀ x : ℕ, l ≤ nat.subtype.of_nat pre x} (h: ¬ l ≤ x) :
+(preserving_pre_piecewise l pre subtype_prop) x = x:=
+begin
+  unfold preserving_pre_piecewise, simp [h],
+end
+
+lemma preserving_pre_piecewise_preserving {l n : ℕ} (h_n : l = n.succ) {pre : set ℕ} [infinite pre]
+{subtype_prop : ∀ x : ℕ, l ≤ nat.subtype.of_nat pre x} : n_preserving n (preserving_pre_piecewise l pre subtype_prop):=
+begin
+  intros x x_le, have l_gt_x: ¬ (l ≤ x), rw h_n, rw not_le, exact nat.lt_succ_iff.2 x_le,
+  exact preserving_pre_not_le l_gt_x,
+end
+
+
+lemma seq_mono_poly_preserving {α : Type} {d : ℕ} (n : ℕ) (e : edge d) (h_e : e.lub = n.succ) (f : colouring (d+1) α) (S : subseq):
+∃ T : subseq, n_preserving n T ∧ 
+(e.monochromatic (f |c rel_embedding.trans T S) ∨ e.polychromatic (f |c rel_embedding.trans T S)):=
+begin
+  set lub_le:= {x : ℕ // e.lub ≤ x},
+  set f_color: lub_le → α:= λ x, (f |c S) (e.of_lub_le x.1 x.2) with f_color_def,
+  haveI: infinite lub_le, 
+  {
+    set nat_to_lub_le: ℕ → lub_le:= λ x : ℕ, ⟨x+e.lub, self_le_add_left _ _⟩,
+    apply infinite.of_injective nat_to_lub_le, intros a b abeq, 
+    rw subtype.ext_iff_val at abeq, apply (add_left_inj e.lub).1 abeq,
+  },
+  rcases polychromatic_pigeonhole f_color with ⟨y, h_y⟩, 
+  set pre: set ℕ:= set.image (λ x : lub_le, x.1) (f_color ⁻¹' {y}),
+  haveI prei: pre.infinite, apply (set.infinite_image_iff _).2 h_y, intros a h_a b h_b abeq, 
+  exact subtype.ext_iff_val.2 abeq, haveI: infinite pre, apply set.infinite_coe_iff.2 prei, 
+   have pre_mem_lub: ∀ x ∈ pre, e.lub ≤ x,
+  intros x h_x, cases (set.mem_image _ _ _).1 h_x with z h_z, rw ← h_z.2, exact z.2,
+  have pre_mem_f_color: ∀ (x : ℕ) (h_x : x ∈ pre), f_color ⟨x, pre_mem_lub x h_x⟩ = y, 
+  {
+    intros x h_x, have mem_pre: (⟨x, pre_mem_lub x h_x⟩: lub_le) ∈ (f_color ⁻¹' {y}),
+    apply (function.injective.mem_set_image _).1, 
+    exact h_x, intros a b abeq, exact subtype.ext_iff_val.2 abeq, exact set.mem_preimage.1 mem_pre,
+  },
+  have subtype_prop: ∀ x : ℕ, e.lub ≤ (nat.subtype.of_nat pre x),
+  {
+    intro x, exact pre_mem_lub (nat.subtype.of_nat pre x) (nat.subtype.of_nat pre x).2,
+  },
+  set T:=preserving_pre_piecewise e.lub pre subtype_prop,
+  use T,
+  refine ⟨preserving_pre_piecewise_preserving h_e, _⟩,
+  {
+    left, intros a b h_a h_b, have e_mono: ∀ (x : ℕ) (h_x: e.lub ≤ x), (f |c rel_embedding.trans T S) (e.of_lub_le x h_x) = y,
+    {
+      intros x h_x, rw restrict_assoc, rw trans_of_lub_preserving h_e.symm (preserving_pre_piecewise_preserving h_e) h_x,
+      simp [h_x], rw f_color_def at pre_mem_f_color, apply pre_mem_f_color (nat.subtype.of_nat pre x) (nat.subtype.of_nat pre x).2,
+    },
+    rw e_mono a h_a, rw e_mono b h_b,
+  },
+  have f_range_choose: ∀ n ∈ set.range f_color, ∃ e : lub_le, f_color e = n := λ e ein, set.mem_range.1 ein,
+  choose! fn h_fn using f_range_choose, 
+  set pre: set ℕ:= set.image (λ x : lub_le, x.1) (set.image fn (set.range f_color)),
+  haveI prei: pre.infinite, 
+  {
+    apply (set.infinite_image_iff _).2, apply (set.infinite_image_iff _).2, 
+    apply h, intros a h_a b h_b abeq, have: f_color (fn a) = f_color (fn a):=rfl,
+    nth_rewrite 0 abeq at this, rw h_fn a h_a at this, rw h_fn b h_b at this, exact this.symm,
+    intros a h_a b h_b abeq, rw subtype.ext_iff_val, apply abeq,
+  },
+  haveI: infinite pre, apply set.infinite_coe_iff.2 prei,
+  have pre_mem_lub: ∀ x ∈ pre, e.lub ≤ x,
+  {
+    intros x h_x, cases (set.mem_image _ _ _).1 h_x with z h_z, rw ← h_z.2, exact z.2,
+  },
+  have pre_mem_f_color: ∀ (x y : ℕ) (h_x : x ∈ pre) (h_y : y ∈ pre) (h_xy : x ≠ y), 
+  f_color ⟨x, pre_mem_lub x h_x⟩ ≠ f_color ⟨y, pre_mem_lub y h_y⟩, 
+  {
+    intros x y h_x h_y h_xy, have mem_pre: ∀ x (h_x: x ∈ pre), (⟨x, pre_mem_lub x h_x⟩: lub_le) ∈ (set.image fn (set.range f_color)),
+    intros x h_x, apply (function.injective.mem_set_image _).1, exact h_x, 
+    intros a b abeq, exact subtype.ext_iff_val.2 abeq, intro h_f, apply h_xy, 
+    cases (set.mem_image _ _ _).1 (mem_pre x h_x) with a h_a,
+    cases (set.mem_image _ _ _).1 (mem_pre y h_y) with b h_b, 
+    rw ←(h_a.2) at h_f, rw ←(h_b.2) at h_f, rw h_fn a h_a.1 at h_f, rw h_fn b h_b.1 at h_f,
+    rw h_f at h_a, rw h_b.2 at h_a, rw subtype.ext_iff_val at h_a, exact h_a.2.symm,
+  },
+  have subtype_prop: ∀ x : ℕ, e.lub ≤ (nat.subtype.of_nat pre x),
+  {
+    intro x, exact pre_mem_lub (nat.subtype.of_nat pre x) (nat.subtype.of_nat pre x).2,
+  },
+  set T:=preserving_pre_piecewise e.lub pre subtype_prop,
+  use T,
+  refine ⟨preserving_pre_piecewise_preserving h_e, _⟩, right,
+  intros a b h_a h_b h_ab, repeat {rw restrict_assoc}, 
+  rw trans_of_lub_preserving h_e.symm (preserving_pre_piecewise_preserving h_e) h_a,
+  rw trans_of_lub_preserving h_e.symm (preserving_pre_piecewise_preserving h_e) h_b,
+  simp [h_a, h_b], repeat {rw f_color_def at pre_mem_f_color},
+  apply pre_mem_f_color (nat.subtype.of_nat pre a) (nat.subtype.of_nat pre b) (nat.subtype.of_nat pre a).2 (nat.subtype.of_nat pre b).2 _,
+  intro h_false, apply h_ab, repeat {rw ← nat.order_embedding_of_set_apply at h_false},
+  apply (nat.order_embedding_of_set pre).inj' h_false, 
+end
+
 
 def constraints {d : ℕ} (f : colouring (d+1) α) : ℕ → subseq → Prop:=
-λ n, λ S, ∀ e : (edge d), (e.lub ≤ n) → (e.monochromatic (f |c S) ∨ e.polychromatic (f |c S))
+λ n, λ S, ∀ e : (edge d), (e.lub = n.succ) → (e.monochromatic (f |c S) ∨ e.polychromatic (f |c S))
 
-lemma constraints_stable {d : ℕ} (f : colouring (d+1) α):
-∀ g : ℕ, ∀ S T : subseq, (constraints f) g S → (constraints f) g (rel_embedding.trans T S):=
+lemma edge_stable {d : ℕ} (f : colouring (d+1) α):
+∀ n : ℕ, ∀ S T : subseq, ∀ e : (edge d), (e.lub = n.succ) → n_preserving n T → 
+(e.monochromatic (f |c S) ∨ e.polychromatic (f |c S)) →
+(e.monochromatic (f |c rel_embedding.trans T S) ∨ e.polychromatic (f |c rel_embedding.trans T S)):=
 begin
-  intros g S T constr_S e e_end_g, cases constr_S e e_end_g with mono poly, 
+  intros n S T e e_end_g n_pres constr_S, unfold colouring.restrict, 
+  have e_le_g:= e.lub_le_iff.1  (nat.le_of_eq e_end_g), simp_rw [nat.lt_succ_iff] at e_le_g,
+  have T_id: rel_embedding.trans e (rel_embedding.trans T S)=rel_embedding.trans e S,
+    {ext, repeat {rw rel_embedding.trans_apply _ _}, 
+    rw n_pres (e x)  (e_le_g x),
+    },
+  have of_lub_pres: ∀ a : ℕ, ∀ h_a : e.lub ≤ a,
+  rel_embedding.trans (e.of_lub_le a h_a) (rel_embedding.trans T S) =
+  rel_embedding.trans (e.of_lub_le (T a) (le_trans h_a (T.le_self a))) S,
   {
-    left, unfold edge.monochromatic at *, intros a b, unfold colouring.restrict at *, 
+    intros a h_a, unfold edge.of_lub_le, ext, simp [T_id, fin.cases], cases eq_or_ne x (fin.last d),
+    rw h, simp only [fin.last_cases_last], have:= lt_of_le_of_ne (fin.le_last x) h, 
+    have xld: (x : ℕ) < d:= this, rw ←fin.cast_succ_cast_lt x xld, simp,
+    rw n_pres (e (x.cast_lt xld)) (e_le_g (x.cast_lt xld)),
+  }, unfold edge.monochromatic, unfold edge.polychromatic, 
+  simp [of_lub_pres], cases constr_S, 
+  {
+    left, 
+    unfold edge.monochromatic at constr_S, intros a b h_a h_b, 
+    apply constr_S (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)),
+  },
+  {
+    right, 
+    unfold edge.polychromatic at constr_S,intros a b h_a h_b aneb, 
+    apply constr_S (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
+    intro taeb, exact aneb (T.inj' taeb),
   },
 end
 
+lemma constraints_stable {d : ℕ} (f : colouring (d+1) α):
+∀ n : ℕ, ∀ S T : subseq, (constraints f) n S → n_preserving n T → (constraints f) n (rel_embedding.trans T S):=
+begin
+  intros n S T constr_S n_pres e e_end_g, unfold colouring.restrict, have e_le_g :=e.le_of_lub_eq e_end_g,
+  have T_id: rel_embedding.trans e (rel_embedding.trans T S)=rel_embedding.trans e S,
+    {ext, repeat {rw rel_embedding.trans_apply _ _}, 
+    rw n_pres (e x) (nat.le_of_lt_succ (e_le_g x)),
+    },
+  unfold edge.monochromatic, unfold edge.polychromatic, dsimp, 
+  have of_lub_pres: ∀ a : ℕ, ∀ h_a : e.lub ≤ a,
+  rel_embedding.trans (e.of_lub_le a h_a) (rel_embedding.trans T S) =
+  rel_embedding.trans (e.of_lub_le (T a) (le_trans h_a (T.le_self a))) S,
+  {
+    intros a h_a, unfold edge.of_lub_le, ext, simp [T_id, fin.cases], cases eq_or_ne x (fin.last d),
+    rw h, simp only [fin.last_cases_last], have:= lt_of_le_of_ne (fin.le_last x) h, 
+    have xld: (x : ℕ) < d:= this, rw ←fin.cast_succ_cast_lt x xld, simp,
+    rw n_pres (e (x.cast_lt xld)) (nat.le_of_lt_succ (e_le_g (x.cast_lt xld))),
+  },
+  simp [of_lub_pres], cases constr_S e e_end_g, 
+  {
+    left, 
+    unfold edge.monochromatic at h, unfold colouring.restrict at h,intros a b h_a h_b, 
+    apply h (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)),
+  },
+  {
+    right, 
+    unfold edge.polychromatic at h, unfold colouring.restrict at h,intros a b h_a h_b aneb, 
+    apply h (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
+    intro taeb, exact aneb (T.inj' taeb),
+  },
+end
+
+def edge_decompose (d : ℕ) (n : ℕ) : 
+{e : edge d.succ // e.lub ≤ n} → {e : edge d // e.lub ≤ n} × (fin n):=
+λ e, ⟨⟨
+    ({to_fun:= λ x, e.1 x,
+      inj':= begin
+        intros a b, simp [e.val.inj'],
+      end,
+      map_rel_iff':=begin
+      simp [e.val.map_rel_iff'],
+      end,
+  } : edge d)
+  , begin
+    rw edge.lub_le_iff _, intro i, dsimp, apply e.1.lub_le_iff.1 e.2 i,
+  end⟩, ⟨e.1 (fin.last d), e.1.lub_le_iff.1 e.2 _⟩⟩
+
+
+instance edgefin {d : ℕ} {n : ℕ}: finite {e : edge d // e.lub ≤ n}:=
+begin
+  induction d with d hd,
+  {
+    by_contradiction, rw not_finite_iff_infinite at h, cases @infinite.exists_subset_card_eq _ h 2 with s h_s, rcases finset.card_eq_two.1 h_s with ⟨a, b, ⟨ab_1, ab_2⟩⟩,
+    apply ab_1, ext, apply fin_zero_elim i,
+  },
+  have decompose_inj: function.injective (edge_decompose d n), intros a b abeq, unfold edge_decompose at abeq,
+  rw prod.ext_iff at abeq, dsimp at abeq, cases abeq with e_eq l_eq, rw subtype.ext_iff at e_eq,
+  rw rel_embedding.ext_iff at e_eq, ext, rw fin.ext_iff at l_eq, 
+  revert i, refine fin.last_cases _ _, apply l_eq, intro i, have:= e_eq i, dsimp at this,
+  rw ←fin.coe_eq_cast_succ, exact this, 
+  haveI: finite ({e : edge d // e.lub ≤ n} × (fin n)):= @finite.prod.finite _ _ hd _,
+  apply finite.of_injective (edge_decompose d n) decompose_inj,
+end
+
+instance edgefin2 {d : ℕ} (n : ℕ): finite {e : edge d // e.lub = n}:=
+begin
+  set f: {e : edge d // e.lub = n} → {e : edge d // e.lub ≤ n}:=λ e, ⟨e.1, le_of_eq e.2⟩ with f_def,
+  apply finite.of_injective f _, intros a b abeq, rw f_def at abeq, 
+  dsimp at abeq, rw subtype.ext_iff at abeq, rw subtype.ext_iff, apply abeq,
+end
+
+instance edgefin3 {d : ℕ} {n : ℕ}: fintype {e : edge d // e.lub = n}:=fintype.of_finite {e : edge d // e.lub = n}
+
+instance edgefin4 {d : ℕ} {n : ℕ}: fintype {e : edge d // e.lub ≤ n}:=fintype.of_finite {e : edge d // e.lub ≤ n}
+
+
 lemma constraints_reachable {d : ℕ} (f : colouring (d+1) α):
-∀ (g : ℕ) (S : subseq), ∃ (T : subseq), 
-(∀ i ≤ g, T i = i) ∧ (constraints f) g (rel_embedding.trans T S):=
-sorry
+∀ (n : ℕ) (S : subseq), ∃ (T : subseq), 
+(n_preserving n T) ∧ (constraints f) n (rel_embedding.trans T S):=
+begin
+  intros n S, set edges:= {e : edge d // e.lub=n.succ},
+  suffices: ∀ (edge_count : ℕ) (edge_set : finset edges),  edge_set.card = edge_count → 
+  ∃ (T : subseq), (n_preserving n T) ∧ 
+  ∀ (e : edges), e ∈ edge_set →
+  e.1.monochromatic (f |c rel_embedding.trans T S) ∨ e.1.polychromatic (f |c rel_embedding.trans T S),
+  {
+    cases this (fintype.card edges) finset.univ rfl with T h_T,
+    use T, refine ⟨h_T.1, _⟩, intros e h_e, exact h_T.2 ⟨e, h_e⟩ (finset.mem_univ _),
+  },
+  intro edge_count, induction edge_count with edge_count h_edge_count, intros edge_set h_edge_count,
+  use (@rel_embedding.refl ℕ (≤)), split, 
+  {
+    intros i ilen, refl,
+  },
+  {
+    intros e h_e, rw finset.card_eq_zero at h_edge_count, 
+    exfalso, rw h_edge_count at h_e, exact finset.not_mem_empty e h_e,
+  },
+  {
+    intros edge_set edge_card, have card_pos: edge_set.card > 0, rw edge_card, 
+    exact nat.succ_pos _, cases (finset.card_pos.1 card_pos) with mem h_mem,
+    have erase_card: (edge_set.erase mem).card=edge_count, rw ←finset.card_erase_add_one h_mem at edge_card,
+    exact nat.succ.inj edge_card, cases h_edge_count (edge_set.erase mem) erase_card with T h_T,
+    have: ∃ T_mem : subseq, n_preserving n T_mem ∧ 
+    (mem.1.monochromatic (f |c rel_embedding.trans T S) ∨ mem.1.polychromatic (f |c rel_embedding.trans T S)),
+    {
+      
+    },
+    sorry,
+  }
+  end
 
 theorem all_heads_mono_poly {d : ℕ} (f : colouring (d+1) α) (S : subseq):
 ∃ T : subseq, ∀ e : edge d, 
@@ -410,8 +708,13 @@ e.monochromatic (f |c rel_embedding.trans T S) ∨
 e.polychromatic (f |c rel_embedding.trans T S):=
 begin
   cases constraints_apply (constraints f) (constraints_stable f) (constraints_reachable f) S with T ht,
-  use T, intro e, exact ht e.lub e rfl, 
+  use T, intro e, cases nat.eq_zero_or_eq_succ_pred e.lub, 
+  {sorry},
+  exact ht e.lub.pred e h, 
 end
+
+end /-namespace-/ iterate
+
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
   /- ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical -/

@@ -2,6 +2,22 @@ import .order_emb
 
 open_locale classical 
 
+lemma subseq.reachable_trans_preserving 
+(S₀ S₁ : subseq) {n : ℕ} (h : ∀ i : ℕ, ∃ k : ℕ, S₀ k = S₁ i) 
+(h_p : ∀ i ≤ n, S₀ i = S₁ i ):
+∃ T : subseq, S₁ = rel_embedding.trans T S₀ ∧ n_preserving n T:=
+begin
+  choose! f hf using h, use f, intros a b abeq, have:= hf b, rw abeq.symm at this, 
+  rw hf a at this, apply S₁.inj' this, intros a b, dsimp, have:=S₁.map_rel_iff',
+   nth_rewrite 1 ← this, show f a ≤ f b ↔ S₁ a ≤ S₁ b, rw ←hf a, rw ← hf b, 
+   exact S₀.map_rel_iff'.symm, exact a, exact b, split,
+   {
+    ext, 
+    simp [hf x]
+   },
+   intros i ilen, have:= hf i, rw ← h_p i ilen at this, apply S₀.inj' this,
+end
+
 lemma subseq.reachable_trans (S₀ S₁ : subseq) (h: ∀ i : ℕ, ∃ k : ℕ, S₀ k = S₁ i):
 ∃ T : subseq, S₁ = rel_embedding.trans T S₀:=
 begin
@@ -24,9 +40,9 @@ begin
 end
 
 theorem constraints_apply (constraints: ℕ → subseq → Prop)
-(constraints_stable: ∀ g : ℕ, ∀ S T : subseq, constraints g S → constraints g (rel_embedding.trans T S))
+(constraints_stable: ∀ n : ℕ, ∀ S T : subseq, constraints n S → n_preserving n T → constraints n (rel_embedding.trans T S))
 (constraints_reachable: ∀ (g : ℕ) (S : subseq), ∃ (T : subseq), 
-  (∀ i ≤ g, T i = i) ∧ constraints g (rel_embedding.trans T S)) :
+  (n_preserving g T) ∧ constraints g (rel_embedding.trans T S)) :
   ∀ S : subseq, ∃ T : subseq, ∀ g, constraints g (rel_embedding.trans T S) :=
 begin
   intro S, 
@@ -94,12 +110,19 @@ begin
     use rel_embedding.trans (f (a + d) (rel_embedding.trans T₀ (seqs a))) T₀, 
     exact subseq.trans_assoc, 
   },
-  have reachable_from_step: ∀ n : ℕ, ∃ T : subseq, S₁= rel_embedding.trans T (f'^[n] (0, S)).2,
-  intro n, apply subseq.reachable_trans _ S₁, intro i, cases le_or_gt n i, 
-  cases seqs_trans n i h with T ht, simp [h_the_seq, ht], simp [h_the_seq],
-  use i, exact (hterm i n (le_of_lt h.lt)).symm, cases reachable_from_step 0 with T₀ hT₀, 
-  use T₀, intro g, simp at hT₀, rw ←hT₀, cases reachable_from_step g.succ with T₁ ht₁,
-  rw ht₁, apply constraints_stable g _ T₁, apply constr g,  
+  have reachable_from_step: ∀ n : ℕ, ∃ T : subseq, 
+  S₁= rel_embedding.trans T (f'^[n] (0, S)).2 ∧ n_preserving n T,
+  intro n, apply subseq.reachable_trans_preserving _ S₁ _,
+    {
+      intros i ilen, rw ← hterm i n ilen, refl,
+    },
+    {intro i, cases le_or_gt n i, 
+    cases seqs_trans n i h with T ht, simp [h_the_seq, ht], simp [h_the_seq],
+    use i, exact (hterm i n (le_of_lt h.lt)).symm,
+     },
+  cases reachable_from_step 0 with T₀ hT₀, 
+  use T₀, intro g, simp at hT₀, rw ←hT₀.1, cases reachable_from_step g.succ with T₁ ht₁,
+  rw ht₁.1, apply constraints_stable g _ T₁ (constr g) (n_preserving_of_succ ht₁.2),
 end
 
 
