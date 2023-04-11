@@ -26,6 +26,12 @@ begin
   apply infinite.of_injective f f_inj,
 end
 
+instance : unique (edge 0):=
+begin
+  refine  ⟨⟨_⟩, _⟩, use λ x, fin_zero_elim x, intro a, apply fin_zero_elim a, intro a, apply fin_zero_elim a,
+  intro a, ext, apply fin_zero_elim x,
+end
+
 /--
 A set of indices for endpoints of a generic edge, identified by their
 relative positions with respect to the ordering on `ℕ`. For example,
@@ -258,7 +264,7 @@ end
 by {ext, simp [edge.of_lub_le, edge.head]}
 
 @[simp] lemma edge.of_lub_le_last_eq (e : edge d) (n : ℕ) (h : e.lub ≤ n) :
-  (edge.of_lub_le e n h).last = n :=
+  (edge.of_lub_le e n h) (fin.last d) = n :=
 by {simp [edge.of_lub_le, edge.last]}
 
 /-!
@@ -333,6 +339,7 @@ begin
   rw this, apply set.infinite_coe_iff.1 hy,
 end
 
+--ended up being useful due to me making a bit of a planning error
 
 lemma seq_mono_poly {α : Type} (f: colouring 1 α) : ∃ S: subseq, --ended up being quite long
 (∀ a b : edge 1, (f |c S) a = (f |c S) b) ∨
@@ -345,7 +352,7 @@ begin
   simp only [subtype.val_eq_coe, set.mem_set_of_eq, equiv.apply_symm_apply, set.mem_preimage, set.mem_singleton_iff], 
   have:= set.mem_preimage.1 z.2, apply set.eq_of_mem_singleton this, rw f_pm_def, 
   simp only [subtype.val_eq_coe, equiv.apply_symm_apply, subtype.coe_eta],
-  apply @infinite.of_surjective _ _ hy f_pm f_pm_surj,
+  apply @infinite.of_surjective _ _ (set.infinite_coe_iff.2 hy) f_pm f_pm_surj,
   set S:= nat.order_embedding_of_set pm, use S, left, intros a b, 
   have fr: set.range (f |c S) = {y}, unfold colouring.restrict,
   ext, rw set.mem_singleton_iff, rw set.mem_range, have pm_y: ∀ (e : edge 1), set.range e ⊆ pm → f e = y,
@@ -360,7 +367,7 @@ begin
   choose! fn h_fn using f_range_choose, set s:= {x : ℕ | edge_one_equiv x ∈ (fn '' (set.range f))}, 
   --have: ∀ x : s, f (edge_one_equiv x) ∈ 
   haveI s_inf: infinite s, set f_s: s → set.range f:= λ x, ⟨f (edge_one_equiv x), set.mem_range_self _⟩ with f_s_def,
-  apply @infinite.of_surjective _ _ h f_s _, intro x, use edge_one_equiv.symm (fn x.val),
+  apply @infinite.of_surjective _ _ (set.infinite_coe_iff.2 h) f_s _, intro x, use edge_one_equiv.symm (fn x.val),
   rw set.mem_set_of, simp only [subtype.val_eq_coe, equiv.apply_symm_apply, set.mem_image,
   set.mem_range, exists_exists_eq_and], cases set.mem_range.1 x.prop with y hy, use y,
   rw hy, rw f_s_def, dsimp, ext, have: f (fn x)= x:= h_fn x x.2, simp [this],
@@ -641,6 +648,11 @@ def edge_decompose (d : ℕ) (n : ℕ) :
     rw edge.lub_le_iff _, intro i, dsimp, apply e.1.lub_le_iff.1 e.2 i,
   end⟩, ⟨e.1 (fin.last d), e.1.lub_le_iff.1 e.2 _⟩⟩
 
+lemma erased_or_mem_erase {β : Type} {s : finset β} {e x : β} 
+(e_mem : e ∈ s) (x_mem : x ∈ s): x = e ∨ x ∈ s.erase e:=
+begin
+  by_cases x=e, left, exact h, right, apply finset.mem_erase.2 ⟨h, x_mem⟩,
+end
 
 instance edgefin {d : ℕ} {n : ℕ}: finite {e : edge d // e.lub ≤ n}:=
 begin
@@ -670,7 +682,7 @@ instance edgefin3 {d : ℕ} {n : ℕ}: fintype {e : edge d // e.lub = n}:=fintyp
 instance edgefin4 {d : ℕ} {n : ℕ}: fintype {e : edge d // e.lub ≤ n}:=fintype.of_finite {e : edge d // e.lub ≤ n}
 
 
-lemma constraints_reachable {d : ℕ} (f : colouring (d+1) α):
+lemma constraints_reachable {α : Type} {d : ℕ} (f : colouring (d+1) α):
 ∀ (n : ℕ) (S : subseq), ∃ (T : subseq), 
 (n_preserving n T) ∧ (constraints f) n (rel_embedding.trans T S):=
 begin
@@ -697,24 +709,40 @@ begin
     exact nat.succ_pos _, cases (finset.card_pos.1 card_pos) with mem h_mem,
     have erase_card: (edge_set.erase mem).card=edge_count, rw ←finset.card_erase_add_one h_mem at edge_card,
     exact nat.succ.inj edge_card, cases h_edge_count (edge_set.erase mem) erase_card with T h_T,
-    have: ∃ T_mem : subseq, n_preserving n T_mem ∧ 
-    (mem.1.monochromatic (f |c rel_embedding.trans T S) ∨ mem.1.polychromatic (f |c rel_embedding.trans T S)),
+    have reachable: ∃ T_mem : subseq, n_preserving n T_mem ∧ 
+    (mem.1.monochromatic (f |c rel_embedding.trans T_mem (rel_embedding.trans T S)) ∨ mem.1.polychromatic (f |c rel_embedding.trans T_mem (rel_embedding.trans T S))),
     {
-      
+      cases seq_mono_poly_preserving n mem.1 mem.2 f (rel_embedding.trans T S) with T_mem h_T_mem, use T_mem,
+      exact h_T_mem,
     },
-    sorry,
-  }
+    rcases reachable with ⟨T_mem, T_mem_pres, T_mem_constr⟩, set T_fin: subseq:=rel_embedding.trans T_mem T, use T_fin,
+    refine ⟨n_preserving_trans h_T.1 T_mem_pres, _⟩, intros e e_mem, cases erased_or_mem_erase h_mem e_mem with m_e_eq e_erase,
+    rw m_e_eq, exact T_mem_constr, have mono_poly:=h_T.2 e _, swap, rw finset.mem_erase, 
+    rw finset.mem_erase at e_erase, exact e_erase,
+    apply edge_stable f n (rel_embedding.trans T S) T_mem e.1 e.2 T_mem_pres mono_poly,
+  },
   end
 
-theorem all_heads_mono_poly {d : ℕ} (f : colouring (d+1) α) (S : subseq):
+theorem all_heads_mono_poly {α : Type} {d : ℕ} (f : colouring (d+1) α) (S : subseq):
 ∃ T : subseq, ∀ e : edge d, 
 e.monochromatic (f |c rel_embedding.trans T S) ∨ 
 e.polychromatic (f |c rel_embedding.trans T S):=
 begin
+  cases nat.eq_zero_or_pos d, 
+  { revert f, rw h, suffices: ∀ (f : colouring 1 α), ∃ (T : subseq), ∀ (e : edge 0), 
+    edge.monochromatic e (f |c rel_embedding.trans T S) ∨ edge.polychromatic e (f |c rel_embedding.trans T S),
+    intro f, exact this f, intro f, cases seq_mono_poly (f |c S) with T h_t, use T, intro e,
+    cases h_t with mono poly, left, intros a b h_a h_b, exact mono (e.of_lub_le a h_a) (e.of_lub_le b h_b),
+    right, intros a b h_a h_b aneb, have:= poly (e.of_lub_le a h_a) (e.of_lub_le b h_b) _, exact this,
+    intro h_f, apply aneb, rw rel_embedding.ext_iff at h_f, have:= h_f (fin.last 0), 
+    repeat {rw edge.of_lub_le_last_eq _ _ _ at this}, exact this,
+  },
   cases constraints_apply (constraints f) (constraints_stable f) (constraints_reachable f) S with T ht,
   use T, intro e, cases nat.eq_zero_or_eq_succ_pred e.lub, 
-  {sorry},
-  exact ht e.lub.pred e h, 
+  {
+    have:= e.lub_le_iff.1 (le_of_eq h_1) ⟨0, h⟩, apply absurd this (nat.not_lt_zero _),
+  },
+  exact ht e.lub.pred e h_1, 
 end
 
 end /-namespace-/ iterate

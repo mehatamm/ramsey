@@ -19,6 +19,12 @@ begin
   intros i ilen, apply h i (nat.le_succ_of_le ilen),
 end
 
+lemma n_preserving_trans {n : ℕ} {S T : subseq} (h_s : n_preserving n S) (h_t : n_preserving n T):
+n_preserving n (rel_embedding.trans T S):=
+begin
+  intros i ilen, rw rel_embedding.trans_apply _ _, rw h_t i ilen, exact h_s i ilen,
+end
+
 section mul 
 
 variables {α : Type*} [has_mul α] [has_zero α] [partial_order α] 
