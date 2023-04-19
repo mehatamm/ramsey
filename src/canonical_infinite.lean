@@ -32,6 +32,37 @@ begin
   intro a, ext, apply fin_zero_elim x,
 end
 
+instance {d : ℕ} : inhabited (edge d):=
+begin
+  refine ⟨_⟩, use λ x, x, intros a b abeq, rw fin.ext_iff, exact abeq, 
+  intros a b, simp,
+end
+
+lemma edge_le_self {d : ℕ} {i : fin d} {e : edge d}: (i : ℕ) ≤ e i:=
+begin
+  suffices: ∀ (x : ℕ) (h: x < d), x ≤ e ⟨x, h⟩, have ile:= this i i.2, apply le_trans ile, 
+  apply le_of_eq, congr, ext, refl, intro x, induction x with x h_x, intro h, apply nat.zero_le _,
+  intro h, have ih:= h_x (nat.lt_of_succ_lt h), have:= e.map_rel_iff'.2 _, swap, exact ⟨x, nat.lt_of_succ_lt h⟩, swap,
+  exact ⟨x.succ, h⟩, swap, rw fin.mk_le_mk, apply nat.le_succ, have:= lt_of_le_of_ne this _, 
+  apply nat.succ_le_of_lt (lt_of_le_of_lt ih this), intro h_f, have:= e.inj' h_f, apply nat.succ_ne_self x, 
+  symmetry, rw fin.mk_eq_mk at this, exact this,
+end
+
+@[reducible] def edge_force {d : ℕ} {i : fin d} (x : {n : ℕ // (i : ℕ) ≤ n}): edge d:=
+{ to_fun := λ n, (x : ℕ) - (i : ℕ) + n,
+  inj' := begin
+    intros a b, rw fin.ext_iff, simp,
+  end,
+  map_rel_iff' := begin
+    intros a b, simp,
+  end }
+
+@[simp] lemma edge_force_at {d : ℕ} {i : fin d} {x : {n : ℕ // (i : ℕ) ≤ n}}:
+(edge_force x) i = x:=
+begin
+  simp, exact nat.sub_add_cancel x.2,
+end
+
 /--
 A set of indices for endpoints of a generic edge, identified by their
 relative positions with respect to the ordering on `ℕ`. For example,
@@ -68,6 +99,9 @@ the same colour iff they agree on that index set.
 -/
 def index_set.canonical (I : index_set d) : colouring d (I ↪o ℕ) :=
 λ e, e |e I
+
+def index_set.cast (I : index_set d) : index_set d.succ:= set.image (fin.succ) I
+
 
 /--
 The restriction of a colouring to the edges contained in a given
@@ -140,9 +174,6 @@ rel_embedding.trans T S
 
 infix ` |s `:80 := subseq.restrict
 
-def subseq.refl : subseq:=
-  (order_iso.refl ℕ).to_order_embedding
-
 lemma colouring.restrict_restrict (f : colouring d α) (S T : subseq) :
   f |c S |c T = f |c (S |s T) := rfl
 
@@ -152,12 +183,6 @@ rel_embedding.trans fin.cast_succ e
 
 /-- The last endpoint of a `(d+1)`-edge. -/
 def edge.last (e : edge (d+1)) : ℕ := e (fin.last d)
-
-/-- Whether a `(d)` edge has as its last endpoint
-a particular natural number-/
-def edge.ends_on : ∀ {d : ℕ}, edge d → ℕ → Prop
-| 0 _ _:= true
-| (d+1) e n:= e (fin.last d) = n
 
 /--
 The smallest natural number which is
@@ -320,7 +345,6 @@ end
 /-!
 ### Main proofs
 -/
-namespace iterate
 
 #check finite.exists_infinite_fiber
 #check nat.order_embedding_of_set
@@ -329,7 +353,7 @@ namespace iterate
 theorem polychromatic_pigeonhole {α β : Type} [infinite α] (f : α → β):
 (∃ y : β, (f ⁻¹' {y}).infinite) ∨ (set.range f).infinite:=
 begin
-  by_cases (set.range f).infinite ,right, assumption,
+  by_cases (set.range f).infinite, right, assumption,
   left, rw set.not_infinite at h,
   set f_aux : α → set.range f:= λ α, ⟨f α, set.mem_range_self α⟩,
   haveI r_f: finite (set.range f), apply @finite.of_fintype _ _, apply set.finite.fintype h,
@@ -388,12 +412,66 @@ def edge.monochromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 f (e.of_lub_le a h_a) = f (e.of_lub_le b h_b))
 
 def edge.monochromatic' {d : ℕ} (e : edge d) (f : colouring (d+1) α):=
-(∀ a b (ha : e.lub ≤ a) (hb : e.lub ≤ b), 
-f (e.of_lub_le a ha) = f (e.of_lub_le b hb))
+∃ y, ∀ a (ha : e.lub ≤ a), f (e.of_lub_le a ha) = y
+
+lemma edge.monochromatic_equiv {d : ℕ} {e : edge d} {f : colouring (d+1) α}:
+e.monochromatic f ↔ e.monochromatic' f:=
+begin
+  unfold edge.monochromatic, unfold edge.monochromatic', split,
+  {
+    intro h, use f (e.of_lub_le e.lub (le_refl _)), intros a h_a, exact h a e.lub h_a (le_refl _),
+  },
+  {
+    intro h, cases h with y h_y, intros a b h_a h_b, rw h_y a h_a, rw h_y b h_b,
+  },
+end
 
 def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
 (∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b, a ≠ b →
 f (e.of_lub_le a h_a) ≠ f (e.of_lub_le b h_b)) 
+
+lemma edge.lub_map {d : ℕ} (e : edge d) (a : ℕ) (S : subseq):
+(e.lub ≤ a) ↔ edge.lub (rel_embedding.trans e S) ≤ S a:=
+begin
+  simp_rw [edge.lub_le_iff] at *, split, intros h i,  rw rel_embedding.trans_apply _ _, apply lt_of_le_of_ne _ _, 
+  apply S.map_rel_iff.2 (le_of_lt (h i)), intro h_f, apply ne_of_lt (h i) (S.inj' h_f), 
+  intros h i, apply lt_of_le_of_ne _ _, apply S.map_rel_iff.1 (le_of_lt (h i)), intro h_f,
+  have:= h i, rw rel_embedding.trans_apply _ _ at this, rw h_f at this, apply (lt_self_iff_false _).1 this,
+end
+
+lemma edge.restrict_distribute {d : ℕ} (e : edge d) (a : ℕ) (h_a: e.lub ≤ a) (S : subseq):
+rel_embedding.trans (e.of_lub_le a h_a) S = (edge.of_lub_le (rel_embedding.trans e S) (S a) ((e.lub_map a S).1 h_a)):=
+begin
+  ext, revert i, refine fin.last_cases _ _, simp, intro i, simp [edge.of_lub_le],
+end
+
+lemma edge.monochromatic_restrict {d : ℕ} (e : edge d) (f : colouring (d+1) α) (S : subseq)
+:
+(((λ e, e.monochromatic f) : colouring (d) Prop) |c S) e → e.monochromatic (f |c S):=
+begin
+  unfold edge.monochromatic at *, unfold colouring.restrict at *, intros h a b h_a h_b, 
+  have:= h (S a) (S b) ((edge.lub_map e a S).1 h_a) ((edge.lub_map e b S).1 h_b), 
+  repeat {rw e.restrict_distribute _ _ S}, exact this, /-intros h a b h_a h_b,
+  have:= h a b ((e.lub_map a S).2 (le_trans h_a (S.le_self a))) ((e.lub_map b S).2 (le_trans h_b (S.le_self b))),
+  repeat {rw e.restrict_distribute _ _ S at this},-/
+end
+
+lemma edge.monochromatic_restrict' {d : ℕ} (e : edge d) (f : colouring (d+1) α) (S : subseq)
+:
+(∀ e_2, ¬ (((λ e_1, e_1.monochromatic f) : colouring (d) Prop) |c S) e_2) → ¬ edge.monochromatic (rel_embedding.trans e S) (f):=
+begin
+  unfold edge.monochromatic at *, unfold colouring.restrict at *, intros h_1 h_2, apply h_1 e,
+  intros a b h_a h_b, apply h_2 a b h_a h_b,
+end
+
+lemma edge.polychromatic_stable_apply {d : ℕ} (e : edge d) (f : colouring (d+1) α) (S : subseq)
+(h: edge.polychromatic (rel_embedding.trans e S) f): e.polychromatic (f |c S):=
+begin
+  unfold colouring.restrict, unfold edge.polychromatic at *, intros a b h_a h_b aneb faneb,
+  apply aneb, have:= h (S a) (S b) ((edge.lub_map e a S).1 h_a) ((edge.lub_map e b S).1 h_b) _,
+  repeat {rw e.restrict_distribute _ _ S at faneb}, exfalso, apply this faneb,
+  intro h_f, apply aneb, exact S.inj' h_f,
+end
 
 @[reducible] def preserving_pre_piecewise (l : ℕ) (pre : set ℕ) [infinite pre] 
 (subtype_prop : ∀ x : ℕ, l ≤ nat.subtype.of_nat pre x)
@@ -745,18 +823,83 @@ begin
   exact ht e.lub.pred e h_1, 
 end
 
-end /-namespace-/ iterate
+lemma fintype_canonical_monochromatic {α : Type} [fintype α] {d : ℕ} (f : colouring d α)
+(I : index_set d) (S : subseq) (h_c: f |c S ≃c I.canonical):
+∃ c : α, ∀ e : edge d, (f |c S) e = c:=
+begin
+  by_cases I=∅, use (f |c S) default, intro e, unfold colouring.iso at h_c, apply (h_c e default).2, ext, 
+  exact is_empty.elim' (set.is_empty_coe_sort.2 h) x, revert d, intro d, cases nat.eq_zero_or_eq_succ_pred d, rw h, 
+  intros f I h_c I_none, use (f |c S) default, rw unique.forall_iff, rw unique.eq_default (edge.inhabited.default),
+  rw h, intros f I h_c I_none, have: I.nonempty, apply set.nonempty_iff_ne_empty.2, apply I_none, 
+  cases set.nonempty_def.1 this with i h_i, exfalso, rw iso_canonical_iff at h_c,
+  have: ∀ (y : set.range (f |c S)),  ∃ x : {n : ℕ // (i : ℕ) ≤ n}, ∀ e, (f |c S) e = y.1 → e i = x,
+  {
+    intro y, cases set.mem_range.1 y.2 with e₀ h_e₀, use (e₀ i), exact edge_le_self, intros e f_e,
+    rw ←h_e₀ at f_e, have:= (h_c e e₀).1 f_e, rw set_coe.forall at this, exact this i h_i,
+  }, haveI: nonempty {n // (i : ℕ) ≤ n}, refine ⟨⟨(i : ℕ), le_refl _⟩⟩, 
+   choose! fn h_fn using this, have fn_surj: fn.surjective,
+  {
+    intro b, use (f |c S) (edge_force b), exact set.mem_range_self (edge_force b),
+    have:= h_fn ⟨(f |c S) (edge_force b), set.mem_range_self (edge_force b)⟩ (edge_force b) rfl, 
+    rw edge_force_at at this, symmetry, ext, exact this, 
+  },
+  haveI: infinite {n // (i : ℕ) ≤ n},
+  {
+    set add: ℕ → {n // (i : ℕ) ≤ n}:=λ x, ⟨x+i, le_add_self⟩, apply infinite.of_injective add, 
+    intros a b, simp, 
+  },
+  have:=infinite.of_surjective fn fn_surj, apply not_finite_iff_infinite.2 this, rw set.finite_coe_iff,
+  apply set.finite.subset _ (set.subset_univ _), refine ⟨set.fintype_univ⟩,
+end
 
+lemma mono_colouring_canonical {d : ℕ} {α : Type} {f : colouring (d+1) α} (fn : colouring d α)
+(h_fn : ∀ (e : edge d) (a : ℕ) (h_a : e.lub ≤ a), f (e.of_lub_le a h_a) = fn e) (S : subseq)
+(I : index_set d) (h_S_I: fn |c S ≃c I.canonical):
+f |c S ≃c I.cast.canonical:=
+begin
+  rw iso_canonical_iff at *, intros e₁ e₂,
+  sorry,
+end
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
   /- ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical -/
   ramsey.statement f :=
 begin
-  change ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical,
-  induction d with d hd, use subseq.refl, use ∅, intros e₁ e₂, 
-  have edge_eq: e₁=e₂, ext, apply fin_zero_elim i, simp [edge_eq],
-  
+  change ∃ (S : subseq) (I : index_set d), f |c S ≃c I.canonical, revert α, 
+  induction d with d hd, 
+  { --zero case
+    intros α f, use subseq.refl, use ∅, intros e₁ e₂, 
+    have edge_eq: e₁=e₂, ext, apply fin_zero_elim i, simp [edge_eq],
+  },
+  intros α f, cases all_heads_mono_poly f subseq.refl with T h_T, rw subseq.trans_refl at h_T, 
+  set colour_colouring: colouring d Prop:=λ e, e.monochromatic (f |c T) with c_def,
+  rcases hd colour_colouring with ⟨S, I, h_S_I⟩,
+  cases fintype_canonical_monochromatic colour_colouring I S h_S_I with colour h_colour,
+  have all_mono_or_all_poly: (∀ e : edge d, e.monochromatic ((f |c T) |c S)) ∨ 
+  ∀ e : edge d, e.polychromatic ((f |c T) |c S),
+  {
+    by_cases colour, left, simp [h] at h_colour, rw c_def at h_colour, intro e, 
+    exact e.monochromatic_restrict (f |c T) S (h_colour e),
+    right, simp [h] at h_colour, rw c_def at h_colour, intro e, 
+    have r_poly:= or.resolve_left (h_T (rel_embedding.trans e S)) (e.monochromatic_restrict' (f |c T) S (h_colour)),
+    exact e.polychromatic_stable_apply (f |c T) S r_poly,
+  },
+  cases all_mono_or_all_poly with mono poly,
+  {
+    simp_rw [edge.monochromatic_equiv] at mono, haveI: nonempty α, 
+    {
+      refine ⟨f default⟩, 
+    },
+    choose! fn h_fn using mono, rcases hd fn with ⟨S_1, I_1, h_S_I_1⟩, 
+    use ((T |s S) |s S_1), use I_1.cast, 
+    rw colouring.restrict_restrict f T S at h_fn, rw ← colouring.restrict_restrict f _ _,
+    exact mono_colouring_canonical fn h_fn S_1 I_1 h_S_I_1, 
+  },
+  {
+    sorry,
+  },
 end
+
 
 lemma canonical_subseq_iso_self
   {d : ℕ} (I : index_set d) (S : subseq) :
@@ -810,3 +953,7 @@ example (d : ℕ) : fin (d+1) := fin.last d
 example (d : ℕ) : fin d ↪o fin (d+1) := fin.cast_succ
 example (α : Type) : Type :=
 quot (λ (f g : ℕ → α), ∃ (n : ℕ), ∀ (m : ℕ), n ≤ m → f m = g m)
+example (d : ℕ) : d ∈ ({d, 3} : finset ℕ):=
+begin
+  simp,
+end

@@ -25,6 +25,13 @@ begin
   intros i ilen, rw rel_embedding.trans_apply _ _, rw h_t i ilen, exact h_s i ilen,
 end
 
+def subseq.refl: subseq := (@rel_embedding.refl ℕ (≤))
+
+lemma subseq.trans_refl {T : subseq}: rel_embedding.trans T subseq.refl = T:=
+begin
+  ext, refl,
+end
+
 section mul 
 
 variables {α : Type*} [has_mul α] [has_zero α] [partial_order α] 
