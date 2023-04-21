@@ -100,7 +100,7 @@ the same colour iff they agree on that index set.
 def index_set.canonical (I : index_set d) : colouring d (I ↪o ℕ) :=
 λ e, e |e I
 
-def index_set.cast (I : index_set d) : index_set d.succ:= set.image (fin.succ) I
+@[reducible] def index_set.cast (I : index_set d) : index_set d.succ:= set.image (fin.cast_succ) I
 
 
 /--
@@ -292,6 +292,13 @@ by {ext, simp [edge.of_lub_le, edge.head]}
   (edge.of_lub_le e n h) (fin.last d) = n :=
 by {simp [edge.of_lub_le, edge.last]}
 
+@[simp] lemma edge.head_trans_comm {e : edge (d+1)} {S : subseq} :
+rel_embedding.trans (e.head) S = edge.head ((rel_embedding.trans e S)):=
+begin
+  refl,
+end
+
+
 /-!
 ### Some API
 -/
@@ -300,6 +307,18 @@ by {simp [edge.of_lub_le, edge.last]}
 
 @[ext] lemma edge.ext {e₁ e₂ : edge d} (h : ∀ i, e₁ i = e₂ i) : e₁ = e₂ := 
 by {ext, rw h}
+
+lemma edge.of_lub_ext {e₁ e₂ : edge (d+1)} (h_h: e₁.head=e₂.head) (h_t: e₁.last = e₂.last): e₁ = e₂:=
+begin
+  rw rel_embedding.ext_iff at h_h, ext x, revert x, refine fin.last_cases _ _, exact h_t, 
+  intro x, exact h_h x,
+end
+
+lemma edge.head_of_lub_le_last_eq (e : edge (d+1)) :
+e = e.head.of_lub_le (e.last) (e.head_lub_le_last):=
+begin
+  refine edge.of_lub_ext _ _, rw edge.of_lub_le_head_eq _ _ _, unfold edge.last, simp, 
+end
 
 @[simp] lemma index_set_apply (e : edge d) (I : index_set d) (i : I) :
   (e |e I) i = e i := rfl 
@@ -427,8 +446,8 @@ begin
 end
 
 def edge.polychromatic {d : ℕ} (e: edge d) (f: colouring (d+1) α):=
-(∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b, a ≠ b →
-f (e.of_lub_le a h_a) ≠ f (e.of_lub_le b h_b)) 
+(∀ a b : ℕ, ∀ h_a : e.lub ≤ a, ∀ h_b : e.lub ≤ b, 
+f (e.of_lub_le a h_a) = f (e.of_lub_le b h_b) → a = b) 
 
 lemma edge.lub_map {d : ℕ} (e : edge d) (a : ℕ) (S : subseq):
 (e.lub ≤ a) ↔ edge.lub (rel_embedding.trans e S) ≤ S a:=
@@ -467,10 +486,10 @@ end
 lemma edge.polychromatic_stable_apply {d : ℕ} (e : edge d) (f : colouring (d+1) α) (S : subseq)
 (h: edge.polychromatic (rel_embedding.trans e S) f): e.polychromatic (f |c S):=
 begin
-  unfold colouring.restrict, unfold edge.polychromatic at *, intros a b h_a h_b aneb faneb,
-  apply aneb, have:= h (S a) (S b) ((edge.lub_map e a S).1 h_a) ((edge.lub_map e b S).1 h_b) _,
-  repeat {rw e.restrict_distribute _ _ S at faneb}, exfalso, apply this faneb,
-  intro h_f, apply aneb, exact S.inj' h_f,
+  unfold colouring.restrict, unfold edge.polychromatic at *, intros a b h_a h_b faeb,
+  have:= h (S a) (S b) ((edge.lub_map e a S).1 h_a) ((edge.lub_map e b S).1 h_b) _,
+  apply S.inj' this,
+  repeat {rw e.restrict_distribute _ _ S at faeb}, exact faeb,
 end
 
 @[reducible] def preserving_pre_piecewise (l : ℕ) (pre : set ℕ) [infinite pre] 
@@ -632,10 +651,10 @@ begin
   set T:=preserving_pre_piecewise e.lub pre subtype_prop,
   use T,
   refine ⟨preserving_pre_piecewise_preserving h_e, _⟩, right,
-  intros a b h_a h_b h_ab, repeat {rw restrict_assoc}, 
+  intros a b h_a h_b, repeat {rw restrict_assoc}, 
   rw trans_of_lub_preserving h_e.symm (preserving_pre_piecewise_preserving h_e) h_a,
   rw trans_of_lub_preserving h_e.symm (preserving_pre_piecewise_preserving h_e) h_b,
-  simp [h_a, h_b], repeat {rw f_color_def at pre_mem_f_color},
+  simp [h_a, h_b], repeat {rw f_color_def at pre_mem_f_color}, contrapose, intro h_ab, 
   apply pre_mem_f_color (nat.subtype.of_nat pre a) (nat.subtype.of_nat pre b) (nat.subtype.of_nat pre a).2 (nat.subtype.of_nat pre b).2 _,
   intro h_false, apply h_ab, repeat {rw ← nat.order_embedding_of_set_apply at h_false},
   apply (nat.order_embedding_of_set pre).inj' h_false, 
@@ -673,9 +692,9 @@ begin
   },
   {
     right, 
-    unfold edge.polychromatic at constr_S,intros a b h_a h_b aneb, 
-    apply constr_S (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
-    intro taeb, exact aneb (T.inj' taeb),
+    unfold edge.polychromatic at constr_S, intros a b h_a h_b faeb, 
+    have:= constr_S (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
+    apply T.inj' (this faeb),
   },
 end
 
@@ -687,7 +706,7 @@ begin
     {ext, repeat {rw rel_embedding.trans_apply _ _}, 
     rw n_pres (e x) (nat.le_of_lt_succ (e_le_g x)),
     },
-  unfold edge.monochromatic, unfold edge.polychromatic, dsimp, 
+  unfold edge.monochromatic, unfold edge.polychromatic, 
   have of_lub_pres: ∀ a : ℕ, ∀ h_a : e.lub ≤ a,
   rel_embedding.trans (e.of_lub_le a h_a) (rel_embedding.trans T S) =
   rel_embedding.trans (e.of_lub_le (T a) (le_trans h_a (T.le_self a))) S,
@@ -705,9 +724,9 @@ begin
   },
   {
     right, 
-    unfold edge.polychromatic at h, unfold colouring.restrict at h,intros a b h_a h_b aneb, 
-    apply h (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
-    intro taeb, exact aneb (T.inj' taeb),
+    unfold edge.polychromatic at h, unfold colouring.restrict at h,intros a b h_a h_b faeb, 
+    have:= h (T a) (T b) (le_trans h_a (T.le_self a)) (le_trans h_b (T.le_self b)), 
+    apply T.inj' (this faeb),
   },
 end
 
@@ -811,7 +830,7 @@ begin
     edge.monochromatic e (f |c rel_embedding.trans T S) ∨ edge.polychromatic e (f |c rel_embedding.trans T S),
     intro f, exact this f, intro f, cases seq_mono_poly (f |c S) with T h_t, use T, intro e,
     cases h_t with mono poly, left, intros a b h_a h_b, exact mono (e.of_lub_le a h_a) (e.of_lub_le b h_b),
-    right, intros a b h_a h_b aneb, have:= poly (e.of_lub_le a h_a) (e.of_lub_le b h_b) _, exact this,
+    right, unfold edge.polychromatic,  intros a b h_a h_b, contrapose, intro aneb, have:= poly (e.of_lub_le a h_a) (e.of_lub_le b h_b) _, exact this,
     intro h_f, apply aneb, rw rel_embedding.ext_iff at h_f, have:= h_f (fin.last 0), 
     repeat {rw edge.of_lub_le_last_eq _ _ _ at this}, exact this,
   },
@@ -852,13 +871,27 @@ begin
   apply set.finite.subset _ (set.subset_univ _), refine ⟨set.fintype_univ⟩,
 end
 
+lemma canonical_succ_iff_head_canonical {d : ℕ} (I : index_set d) (e₁ e₂ : edge (d+1)):
+(∀ i : (I.cast), e₁ i = e₂ i) ↔ (∀ i : I, e₁.head i = e₂.head i):=
+begin
+  simp only [set_coe.forall, subtype.coe_mk], split, intros h x x_mem, have:= h (fin.cast_succ x) _,
+  unfold edge.head, repeat {rw rel_embedding.trans_apply}, exact this, rw set.mem_image _ _ _, use x,
+  refine ⟨x_mem, rfl⟩, intros h x x_mem, rw set.mem_image _ _ _ at x_mem, rcases x_mem with ⟨y, hy₁, hy₂⟩, 
+  have:= h y hy₁, rw ←hy₂, exact this,
+
+end
+
 lemma mono_colouring_canonical {d : ℕ} {α : Type} {f : colouring (d+1) α} (fn : colouring d α)
 (h_fn : ∀ (e : edge d) (a : ℕ) (h_a : e.lub ≤ a), f (e.of_lub_le a h_a) = fn e) (S : subseq)
 (I : index_set d) (h_S_I: fn |c S ≃c I.canonical):
 f |c S ≃c I.cast.canonical:=
 begin
-  rw iso_canonical_iff at *, intros e₁ e₂,
-  sorry,
+  rw iso_canonical_iff at *, intros e₁ e₂, rw canonical_succ_iff_head_canonical I e₁ e₂, 
+  rw ←h_S_I e₁.head e₂.head, unfold colouring.restrict, repeat {rw edge.head_trans_comm}, 
+  rw edge.head_of_lub_le_last_eq (rel_embedding.trans e₁ S), rw edge.head_of_lub_le_last_eq (rel_embedding.trans e₂ S),
+   rw h_fn (edge.head (rel_embedding.trans e₁ S)) _ (edge.head_lub_le_last _),
+  rw h_fn (edge.head (rel_embedding.trans e₂ S)) _ (edge.head_lub_le_last _),
+  repeat {rw edge.of_lub_le_head_eq _ _ _},
 end
 
 lemma ramsey {d : ℕ} {α : Type} (f : colouring d α) :
@@ -896,7 +929,7 @@ begin
     exact mono_colouring_canonical fn h_fn S_1 I_1 h_S_I_1, 
   },
   {
-    sorry,
+    
   },
 end
 
